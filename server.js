@@ -188,3 +188,5 @@ app.post('/generate-caption', async (req, res) => {
     }
 });
 
+
+
