@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "mysql2": "^3.11.3",
     "axios": "^1.7.5",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
@@ -22,7 +23,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.9.0",
     "mongoose": "^7.8.2",
-    "mysql2": "^3.11.3",
     "openai": "^4.62.0",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
