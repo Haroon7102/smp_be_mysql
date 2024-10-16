@@ -164,7 +164,11 @@ sequelize.authenticate()
         console.log('Database connected...');
         app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
     })
-    .catch(err => console.log('Error: ' + err));
+    // .catch(err => console.log('Error: ' + err));
+    .catch(err => {
+        console.error('Unable to connect to the database:', err); // Log the error
+        process.exit(1); // Exit the process if the connection fails
+    });
 
 // List all routes for debugging purposes
 app._router.stack.forEach(function (r) {
