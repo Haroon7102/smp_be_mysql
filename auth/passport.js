@@ -31,7 +31,7 @@ passport.use(new JwtStrategy(opts, async (jwt_payload, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'https://smpfe.netlify.app/auth/google/callback'
+    callbackURL: 'https://smp-be-mysql.vercel.app/auth/google/callback'
 },
     async (token, tokenSecret, profile, done) => {
         try {
@@ -53,7 +53,7 @@ passport.use(new GoogleStrategy({
 passport.use(new FacebookStrategy({
     clientID: process.env.FACEBOOK_APP_ID,
     clientSecret: process.env.FACEBOOK_APP_SECRET,
-    callbackURL: 'https://smpfe.netlify.app/auth/facebook/callback',
+    callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
     profileFields: ['id', 'displayName', 'email']
 },
     async (accessToken, refreshToken, profile, done) => {
