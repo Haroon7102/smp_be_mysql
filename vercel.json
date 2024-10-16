@@ -11,6 +11,9 @@
         "src": "/(.*)",
         "dest": "/server.js"
       }
-    ]
+    ],
+    "build": {
+      "installCommand": "npm install mysql2"
+    }
   }
   
