@@ -171,7 +171,7 @@ router.get('/google/callback', passport.authenticate('google', { session: false 
     const payload = { id: req.user.id };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1hr' }, (err, token) => {
         if (err) throw err;
-        res.redirect(`https://client-ochre-kappa.vercel.app/dashboard?token=${token}`);
+        res.redirect(`https://smpfe.netlify.app/dashboard?token=${token}`);
     });
 });
 
