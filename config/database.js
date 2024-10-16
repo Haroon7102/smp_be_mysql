@@ -7,13 +7,15 @@
 
 // module.exports = sequelize;
 
+const mysql2 = require('mysql2');
 
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize('fyp', 'avnadmin', 'AVNS_8rvjJLYgYtsAun2UQpE', {
     host: 'haroon-fyp-atifr454-9682.e.aivencloud.com', // Correct host without http://
     dialect: 'mysql', // The database type
-    port: 22896
+    port: 22896,
+    dialectModule: mysql2
 });
 
 module.exports = sequelize;
