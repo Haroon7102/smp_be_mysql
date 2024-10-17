@@ -280,8 +280,10 @@ passport.use(new InstagramStrategy({
 
 // Google strategy
 passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    // clientID: process.env.GOOGLE_CLIENT_ID,
+    // clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    clientID: '330395361476-4m36c2pmkur4t7koof2ecor468421l44.apps.googleusercontent.com',      // Replace with actual client ID
+    clientSecret: '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', // Replace with actual client secret
     callbackURL: 'https://smp-be-mysql.vercel.app//auth/google/callback' // Updated to the deployed backend URL
 },
     async (accessToken, refreshToken, profile, done) => {
