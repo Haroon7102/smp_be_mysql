@@ -51,9 +51,11 @@ passport.use(new GoogleStrategy({
             return done(err, false);
         }
     }));
+
+const FacebookStrategy = require('passport-facebook').Strategy;
+const User = require('./models/User'); // Adjust the path as necessary
+
 passport.use(new FacebookStrategy({
-    // clientID: process.env.FACEBOOK_APP_ID,
-    // clientSecret: process.env.FACEBOOK_APP_SECRET,
     clientID: '1332019044439778',      // Replace with actual client ID
     clientSecret: '84b1a81f8b8129f43983db4e9692a39a', // Replace with actual client secret
     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
@@ -83,7 +85,8 @@ passport.use(new FacebookStrategy({
             console.error('Error handling Facebook login:', err);
             return done(err, null);
         }
-    }));
+    }
+));
 
 
 passport.serializeUser((user, done) => {
