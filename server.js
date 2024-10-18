@@ -340,7 +340,7 @@ app.get('/auth/google/callback',
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
             // Updated to redirect to the deployed frontend URL
-            res.redirect(`https://smpfe.netlify.app?token=${token}`);
+            res.redirect(`https://smpfe.netlify.app/dashboard?token=${token}`);
         });
     }
 );
