@@ -54,38 +54,38 @@ passport.use(new GoogleStrategy({
 
 
 
-passport.use(new FacebookStrategy({
-    clientID: '1332019044439778',      // Replace with actual client ID
-    clientSecret: '84b1a81f8b8129f43983db4e9692a39a', // Replace with actual client secret
-    callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
-    profileFields: ['id', 'displayName', 'email']
-},
-    async (accessToken, refreshToken, profile, done) => {
-        try {
-            // Attempt to find a user with the Facebook ID
-            let user = await User.findOne({ where: { facebookId: profile.id } });
+// passport.use(new FacebookStrategy({
+//     clientID: '1332019044439778',      // Replace with actual client ID
+//     clientSecret: '84b1a81f8b8129f43983db4e9692a39a', // Replace with actual client secret
+//     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
+//     profileFields: ['id', 'displayName', 'email']
+// },
+//     async (accessToken, refreshToken, profile, done) => {
+//         try {
+//             // Attempt to find a user with the Facebook ID
+//             let user = await User.findOne({ where: { facebookId: profile.id } });
 
-            // If no user found, create a new one
-            if (!user) {
-                user = await User.create({
-                    name: profile.displayName,
-                    email: profile.emails[0].value,
-                    facebookId: profile.id,
-                    accessToken, // Save the access token if needed for future requests
-                });
-            } else {
-                // Optionally, update the accessToken if the user already exists
-                await user.update({ accessToken });
-            }
+//             // If no user found, create a new one
+//             if (!user) {
+//                 user = await User.create({
+//                     name: profile.displayName,
+//                     email: profile.emails[0].value,
+//                     facebookId: profile.id,
+//                     accessToken, // Save the access token if needed for future requests
+//                 });
+//             } else {
+//                 // Optionally, update the accessToken if the user already exists
+//                 await user.update({ accessToken });
+//             }
 
-            // Pass the user object to done callback
-            return done(null, { profile, accessToken });
-        } catch (err) {
-            console.error('Error handling Facebook login:', err);
-            return done(err, null);
-        }
-    }
-));
+//             // Pass the user object to done callback
+//             return done(null, { profile, accessToken });
+//         } catch (err) {
+//             console.error('Error handling Facebook login:', err);
+//             return done(err, null);
+//         }
+//     }
+// ));
 
 
 passport.serializeUser((user, done) => {
