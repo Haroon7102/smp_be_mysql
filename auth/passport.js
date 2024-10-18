@@ -52,8 +52,7 @@ passport.use(new GoogleStrategy({
         }
     }));
 
-const FacebookStrategy = require('passport-facebook').Strategy;
-const User = require('./models/User'); // Adjust the path as necessary
+
 
 passport.use(new FacebookStrategy({
     clientID: '1332019044439778',      // Replace with actual client ID
