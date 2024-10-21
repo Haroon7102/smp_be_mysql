@@ -686,12 +686,42 @@ passport.deserializeUser((obj, done) => {
     done(null, obj);
 });
 
-// Facebook strategy
+// // Facebook strategy
+// passport.use(new FacebookStrategy({
+//     clientID: process.env.FACEBOOK_APP_ID, // Use your .env variables
+//     clientSecret: process.env.FACEBOOK_APP_SECRET,
+//     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
+//     profileFields: ['id', 'displayName', 'email']
+// },
+//     async (accessToken, refreshToken, profile, done) => {
+//         try {
+//             let user = await User.findOne({ where: { facebookId: profile.id } });
+//             if (!user) {
+//                 user = await User.create({
+//                     name: profile.displayName,
+//                     email: profile.emails[0].value,
+//                     facebookId: profile.id,
+//                     accessToken
+//                 });
+//             } else {
+//                 await user.update({ accessToken });
+//             }
+//             return done(null, { profile, accessToken });
+//         } catch (err) {
+//             console.error('Error handling Facebook login:', err);
+//             return done(err, null);
+//         }
+//     }
+// ));
+
 passport.use(new FacebookStrategy({
-    clientID: process.env.FACEBOOK_APP_ID, // Use your .env variables
-    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    // clientID: process.env.FACEBOOK_APP_ID,
+    // clientSecret: process.env.FACEBOOK_APP_SECRET,
+    clientID: '1332019044439778',
+    clientSecret: '84b1a81f8b8129f43983db4e9692a39a',
     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
-    profileFields: ['id', 'displayName', 'email']
+    profileFields: ['id', 'displayName', 'email'],
+    scope: ['email', 'public_profile', 'pages_manage_posts'] // Add any other necessary permissions here
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
@@ -711,8 +741,8 @@ passport.use(new FacebookStrategy({
             console.error('Error handling Facebook login:', err);
             return done(err, null);
         }
-    }
-));
+    }));
+
 
 // Instagram strategy
 passport.use(new InstagramStrategy({
