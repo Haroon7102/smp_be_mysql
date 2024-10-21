@@ -447,71 +447,79 @@ app.get('/protected', authMiddleware, (req, res) => {
     });
 });
 
-// Passport strategies
-passport.serializeUser((user, done) => {
-    done(null, user);
-});
+// // Passport strategies
+// passport.serializeUser((user, done) => {
+//     done(null, user);
+// });
 
-passport.deserializeUser((obj, done) => {
-    done(null, obj);
-});
+// passport.deserializeUser((obj, done) => {
+//     done(null, obj);
+// });
 
-// Facebook strategy
+
 // passport.use(new FacebookStrategy({
-//     clientID: process.env.FACEBOOK_APP_ID,
-//     clientSecret: process.env.FACEBOOK_APP_SECRET,
-//     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback' // Updated to the deployed backend URL
+//     clientID: '1332019044439778',      // Replace with actual client ID
+//     clientSecret: '84b1a81f8b8129f43983db4e9692a39a', // Replace with actual client secret
+//     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
+//     profileFields: ['id', 'displayName', 'email']
+// },
+//     async (accessToken, refreshToken, profile, done) => {
+//         try {
+//             // Attempt to find a user with the Facebook ID
+//             let user = await User.findOne({ where: { facebookId: profile.id } });
+
+//             // If no user found, create a new one
+//             if (!user) {
+//                 user = await User.create({
+//                     name: profile.displayName,
+//                     email: profile.emails[0].value,
+//                     facebookId: profile.id,
+//                     accessToken, // Save the access token if needed for future requests
+//                 });
+//             } else {
+//                 // Optionally, update the accessToken if the user already exists
+//                 await user.update({ accessToken });
+//             }
+
+//             // Pass the user object to done callback
+//             return done(null, { profile, accessToken });
+//         } catch (err) {
+//             console.error('Error handling Facebook login:', err);
+//             return done(err, null);
+//         }
+//     }
+// ));
+
+// Session setup for passport
+app.use(session({ secret: '84b1a81f8b8129f43983db4e9692a39a', resave: false, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.get('/auth/facebook',
+    passport.authenticate('facebook', { scope: ['email', 'public_profile', 'pages_manage_posts', 'pages_show_list'] })
+);
+
+app.get('/auth/facebook/callback',
+    passport.authenticate('facebook', { failureRedirect: '/login', session: true }),
+    (req, res) => {
+        // Successful authentication, redirect with user info
+        res.json({
+            message: 'Successfully logged in with Facebook!',
+            user: req.user
+        });
+    }
+);
+
+// // Instagram strategy
+// passport.use(new InstagramStrategy({
+//     clientID: process.env.INSTAGRAM_CLIENT_ID,
+//     clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+//     callbackURL: 'https://smp-be-mysql.vercel.app/auth/instagram/callback' // Updated to the deployed backend URL
 // },
 //     (accessToken, refreshToken, profile, done) => {
 //         return done(null, { profile, accessToken });
 //     }
 // ));
-
-
-passport.use(new FacebookStrategy({
-    clientID: '1332019044439778',      // Replace with actual client ID
-    clientSecret: '84b1a81f8b8129f43983db4e9692a39a', // Replace with actual client secret
-    callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
-    profileFields: ['id', 'displayName', 'email']
-},
-    async (accessToken, refreshToken, profile, done) => {
-        try {
-            // Attempt to find a user with the Facebook ID
-            let user = await User.findOne({ where: { facebookId: profile.id } });
-
-            // If no user found, create a new one
-            if (!user) {
-                user = await User.create({
-                    name: profile.displayName,
-                    email: profile.emails[0].value,
-                    facebookId: profile.id,
-                    accessToken, // Save the access token if needed for future requests
-                });
-            } else {
-                // Optionally, update the accessToken if the user already exists
-                await user.update({ accessToken });
-            }
-
-            // Pass the user object to done callback
-            return done(null, { profile, accessToken });
-        } catch (err) {
-            console.error('Error handling Facebook login:', err);
-            return done(err, null);
-        }
-    }
-));
-
-
-// Instagram strategy
-passport.use(new InstagramStrategy({
-    clientID: process.env.INSTAGRAM_CLIENT_ID,
-    clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
-    callbackURL: 'https://smp-be-mysql.vercel.app/auth/instagram/callback' // Updated to the deployed backend URL
-},
-    (accessToken, refreshToken, profile, done) => {
-        return done(null, { profile, accessToken });
-    }
-));
 
 // Google strategy
 passport.use(new GoogleStrategy({
@@ -543,14 +551,14 @@ passport.use(new GoogleStrategy({
 ));
 
 // Facebook authentication routes
-app.get('/auth/facebook', passport.authenticate('facebook'));
+// app.get('/auth/facebook', passport.authenticate('facebook'));
 
-app.get('/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/'); // Redirect to your front-end route
-    }
-);
+// app.get('/auth/facebook/callback',
+//     passport.authenticate('facebook', { failureRedirect: '/' }),
+//     (req, res) => {
+//         res.redirect('/'); // Redirect to your front-end route
+//     }
+// );
 
 // Instagram authentication routes
 app.get('/auth/instagram', passport.authenticate('instagram'));
