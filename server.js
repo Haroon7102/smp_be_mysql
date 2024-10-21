@@ -721,7 +721,7 @@ passport.use(new FacebookStrategy({
     clientSecret: '84b1a81f8b8129f43983db4e9692a39a',
     callbackURL: 'https://smp-be-mysql.vercel.app/auth/facebook/callback',
     profileFields: ['id', 'displayName', 'email'],
-    scope: ['email', 'public_profile', 'pages_manage_posts'] // Add any other necessary permissions here
+    scope: ['email', 'public_profile', 'pages_manage_posts', 'pages_show_list', 'pages_read_engagement'] // Add any other necessary permissions here
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
