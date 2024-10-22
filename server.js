@@ -649,19 +649,32 @@ app.post('/generate-caption', async (req, res) => {
     }
 });
 
-// Assuming you are using express
+// // Assuming you are using express
+// app.post('/api/posts', async (req, res) => {
+//     const { userId, pageId, message } = req.body;
+
+//     try {
+//         const post = await Post.create({ userId, pageId, message });
+//         res.status(201).json(post); // Send the created post back as a response
+//     } catch (error) {
+//         console.error('Error creating post:', error);
+//         res.status(500).json({ error: 'Failed to create post' });
+//     }
+// });
+
 app.post('/api/posts', async (req, res) => {
     const { userId, pageId, message } = req.body;
+
+    console.log('Received post data:', { userId, pageId, message }); // Log received data
 
     try {
         const post = await Post.create({ userId, pageId, message });
         res.status(201).json(post); // Send the created post back as a response
     } catch (error) {
-        console.error('Error creating post:', error);
+        console.error('Error creating post:', error.message || error); // Log specific error message
         res.status(500).json({ error: 'Failed to create post' });
     }
 });
-
 
 
 
