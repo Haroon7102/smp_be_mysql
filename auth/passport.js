@@ -104,7 +104,7 @@
 const passport = require('passport');
 const FacebookStrategy = require('passport-facebook').Strategy;
 const dotenv = require('dotenv');
-const { User } = require('../models');  // Adjust path based on your project structure
+const { User } = require('../models/user');  // Adjust path based on your project structure
 const axios = require('axios');
 
 dotenv.config();

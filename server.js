@@ -413,6 +413,7 @@ const { generateCaption } = require('./openai/openaiservice');
 const authMiddleware = require('./middleware/middleware');
 const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
+const Post = require('./models/Post'); // Adjust the path as necessary
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -596,16 +597,33 @@ app.get('/auth/user', authMiddleware, (req, res) => {
     }
 });
 
+// // Start the server and connect to the database
+// sequelize.authenticate()
+//     .then(() => {
+//         console.log('Database connected...');
+//         app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+//     })
+//     .catch(err => {
+//         console.error('Unable to connect to the database:', err);
+//         process.exit(1); // Exit the process if the connection fails
+//     });
+
+
 // Start the server and connect to the database
 sequelize.authenticate()
-    .then(() => {
+    .then(async () => {
         console.log('Database connected...');
+
+        // Sync models here (only in development; in production, use migrations)
+        await sequelize.sync(); // This will ensure your models match the database schema
+
         app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
     })
     .catch(err => {
         console.error('Unable to connect to the database:', err);
         process.exit(1); // Exit the process if the connection fails
     });
+
 
 // List all routes for debugging purposes
 app._router.stack.forEach(function (r) {
@@ -631,6 +649,18 @@ app.post('/generate-caption', async (req, res) => {
     }
 });
 
+// Assuming you are using express
+app.post('/api/posts', async (req, res) => {
+    const { userId, pageId, message } = req.body;
+
+    try {
+        const post = await Post.create({ userId, pageId, message });
+        res.status(201).json(post); // Send the created post back as a response
+    } catch (error) {
+        console.error('Error creating post:', error);
+        res.status(500).json({ error: 'Failed to create post' });
+    }
+});
 
 
 

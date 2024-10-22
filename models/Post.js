@@ -1,0 +1,35 @@
+module.exports = (sequelize, DataTypes) => {
+    const Post = sequelize.define('Post', {
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+        },
+        userId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+        },
+        pageId: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        message: {
+            type: DataTypes.TEXT,
+            allowNull: false,
+        },
+        createdAt: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW,
+        },
+        updatedAt: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW,
+        },
+    }, {
+        tableName: 'posts', // Ensure this matches the name of your migration
+    });
+
+    return Post;
+};
