@@ -89,7 +89,7 @@ router.get('/callback', async (req, res) => {
 
 
 
-router.post('/posts', async (req, res) => {
+router.post('/save', async (req, res) => {
     const { userId, pageId, message } = req.body;
 
     try {
