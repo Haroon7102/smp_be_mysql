@@ -440,6 +440,7 @@ app.use('/auth', authRoutes);
 // Post Routes
 app.use('/post', postRoutes); // Ensure you use the post routes
 
+
 // Example of a protected route
 app.get('/protected', authMiddleware, (req, res) => {
     res.json({
@@ -678,20 +679,6 @@ app.post('/api/posts', async (req, res) => {
 
 
 
-router.post('/posts', async (req, res) => {
-    const { userId, pageId, message } = req.body;
-
-    try {
-        // Insert logic to save post to database
-        const savedPost = await YourDatabaseModel.create({ userId, pageId, message });
-        res.status(201).json(savedPost);
-    } catch (error) {
-        console.error('Error saving post:', error);
-        res.status(500).json({ error: 'Failed to save post' });
-    }
-});
-
-module.exports = router;
 
 
 // const express = require('express');
