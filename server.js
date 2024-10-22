@@ -678,6 +678,22 @@ app.post('/api/posts', async (req, res) => {
 
 
 
+router.post('/posts', async (req, res) => {
+    const { userId, pageId, message } = req.body;
+
+    try {
+        // Insert logic to save post to database
+        const savedPost = await YourDatabaseModel.create({ userId, pageId, message });
+        res.status(201).json(savedPost);
+    } catch (error) {
+        console.error('Error saving post:', error);
+        res.status(500).json({ error: 'Failed to save post' });
+    }
+});
+
+module.exports = router;
+
+
 // const express = require('express');
 // require('dotenv').config();
 // const bodyParser = require('body-parser');
