@@ -95,17 +95,23 @@ router.get('/callback', async (req, res) => {
 
 
 router.post('/save', async (req, res) => {
-    const { userId, pageId, message } = req.body;
-
     try {
-        // Save the post to the database
-        const savedPost = await Post.create({ userId, pageId, message });
-        res.status(201).json(savedPost);
+        const { userId, pageId, message } = req.body;
+        // Add validation checks if necessary
+        if (!userId || !pageId || !message) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Your logic to save the post, e.g.:
+        const newPost = await Post.create({ userId, pageId, message });
+
+        return res.status(201).json(newPost);
     } catch (error) {
-        console.error('Error saving post:', error);
-        res.status(500).json({ error: 'Failed to save post' });
+        console.error('Error saving post to database:', error);
+        return res.status(500).json({ error: 'Failed to save post to database', details: error.message });
     }
 });
+
 
 module.exports = router;
 
