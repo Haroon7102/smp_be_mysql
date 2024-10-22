@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios'); // For making HTTP requests
+// const { Post } = require('../models');  // Adjust the path if needed
+const db = require('../models'); // Adjust the path if necessary
+// const { Post } = require('../models'); // Adjust the path according to your directory structure
+const Post = db.Post; // This should give you access to the Post model
+
 
 const authMiddleware = require('../middleware/middleware'); // Ensure you have your middleware for authentication
 
@@ -93,8 +98,8 @@ router.post('/save', async (req, res) => {
     const { userId, pageId, message } = req.body;
 
     try {
-        // Insert logic to save post to database
-        const savedPost = await YourDatabaseModel.create({ userId, pageId, message });
+        // Save the post to the database
+        const savedPost = await Post.create({ userId, pageId, message });
         res.status(201).json(savedPost);
     } catch (error) {
         console.error('Error saving post:', error);

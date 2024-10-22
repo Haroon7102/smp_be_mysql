@@ -28,7 +28,7 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: DataTypes.NOW,
         },
     }, {
-        tableName: 'posts', // Ensure this matches the name of your migration
+        tableName: 'posts',
     });
 
     return Post;
