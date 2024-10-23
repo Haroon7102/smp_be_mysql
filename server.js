@@ -414,6 +414,7 @@ const authMiddleware = require('./middleware/middleware');
 const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
 const Post = require('./models/Post'); // Adjust the path as necessary
+const facebookRoutes = require('./auth/facebookRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -428,6 +429,9 @@ app.use(bodyParser.json());
 app.use(session({ secret: 'your-secret', resave: false, saveUninitialized: true }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use('/facebook', facebookRoutes);
+
 
 // Public Route
 app.get('/', (req, res) => {
