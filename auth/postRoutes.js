@@ -1,12 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios'); // For making HTTP requests
-// const { Post } = require('../models');  // Adjust the path if needed
 const db = require('../models'); // Adjust the path if necessary
-// const { Post } = require('../models'); // Adjust the path according to your directory structure
 const Post = db.Post; // This should give you access to the Post model
-
-
 const authMiddleware = require('../middleware/middleware'); // Ensure you have your middleware for authentication
 
 router.post('/facebook', authMiddleware, async (req, res) => {
@@ -117,105 +113,3 @@ router.post('/save', async (req, res) => {
 
 
 module.exports = router;
-
-
-
-
-// const express = require('express');
-// const router = express.Router();
-// const axios = require('axios'); // For making HTTP requests
-// const authMiddleware = require('../middleware/middleware'); // Ensure you have your middleware for authentication
-
-// // Post to Facebook Page
-// router.post('/facebook', authMiddleware, async (req, res) => {
-//     const { message, pageId, facebookAccessToken } = req.body;
-
-//     if (!facebookAccessToken) {
-//         return res.status(401).json({ success: false, error: 'Access token is missing or invalid.' });
-//     }
-//     if (!message) {
-//         return res.status(400).json({ success: false, error: 'Message is required.' });
-//     }
-//     if (!pageId) {
-//         return res.status(400).json({ success: false, error: 'Page ID is required.' });
-//     }
-
-//     try {
-//         const response = await axios.post(`https://graph.facebook.com/${pageId}/feed`, {
-//             message,
-//             access_token: facebookAccessToken,
-//         });
-
-//         res.json({ success: true, data: response.data });
-//     } catch (error) {
-//         console.error('Error posting to Facebook:', error.response?.data || error.message);
-
-//         res.status(500).json({
-//             success: false,
-//             error: error.response?.data || 'An error occurred while posting to Facebook.',
-//         });
-//     }
-// });
-
-// // Post to Instagram
-// router.post('/instagram', authMiddleware, async (req, res) => {
-//     const { imageUrl, caption } = req.body;
-//     const accessToken = req.user.instagramAccessToken;
-
-//     if (!imageUrl || !caption) {
-//         return res.status(400).json({ success: false, error: 'Image URL and caption are required.' });
-//     }
-
-//     try {
-//         // Step 1: Create a media object container
-//         const mediaResponse = await axios.post(`https://graph.instagram.com/v15.0/me/media`, {
-//             image_url: imageUrl,
-//             caption,
-//             access_token: accessToken
-//         });
-
-//         // Step 2: Publish the media object
-//         const publishResponse = await axios.post(`https://graph.instagram.com/v15.0/me/media_publish`, {
-//             creation_id: mediaResponse.data.id,
-//             access_token: accessToken
-//         });
-
-//         res.json({ success: true, data: publishResponse.data });
-//     } catch (error) {
-//         console.error('Error posting to Instagram:', error.response?.data || error.message);
-//         res.status(500).json({
-//             success: false,
-//             error: error.response?.data || 'An error occurred while posting to Instagram.',
-//         });
-//     }
-// });
-
-// // Facebook Access Token Callback Route
-// router.get('/callback', async (req, res) => {
-//     const code = req.query.code;
-//     const appId = process.env.FACEBOOK_APP_ID;
-//     const appSecret = process.env.FACEBOOK_APP_SECRET;
-//     const redirectUri = 'https://smp-be-mysql.vercel.app/auth/facebook/callback';
-
-//     try {
-//         const response = await axios.get(`https://graph.facebook.com/v17.0/oauth/access_token`, {
-//             params: {
-//                 client_id: appId,
-//                 redirect_uri: redirectUri,
-//                 client_secret: appSecret,
-//                 code: code
-//             }
-//         });
-
-//         const accessToken = response.data.access_token;
-//         res.json({ success: true, accessToken });
-//     } catch (error) {
-//         console.error('Error getting access token:', error.response?.data || error.message);
-//         res.status(500).json({
-//             success: false,
-//             error: error.response?.data || 'An error occurred while fetching the access token.',
-//         });
-//     }
-// });
-
-// module.exports = router;
