@@ -90,9 +90,11 @@ router.get('/callback', async (req, res) => {
 
 
 router.post('/save', async (req, res) => {
+    console.log('saving api is hitting');
     try {
         const { userId, pageId, message } = req.body;
         console.log('Received data:', req.body); // Log incoming request data
+        console.log('data is arriving here', userId, pageId, message);
 
         // Validation checks
         if (!userId || !pageId || !message) {
