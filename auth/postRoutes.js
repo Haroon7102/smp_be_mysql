@@ -98,7 +98,7 @@ router.post('/save', async (req, res) => {
         if (!userId || !pageId || !message) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        console.log(userId, pageId, message);
+        console.log('data is arriving here', userId, pageId, message);
         // Logic to save the post
         const newPost = await Post.create({ userId, pageId, message });
         console.log('Post saved:', newPost); // Log saved post
