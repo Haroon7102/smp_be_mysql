@@ -21,6 +21,7 @@
 //   }
 // };
 
+
 'use strict';
 
 module.exports = {
@@ -33,12 +34,8 @@ module.exports = {
         allowNull: false,
       },
       userId: {
-        type: Sequelize.BIGINT, // Changed to BIGINT
+        type: Sequelize.INTEGER,
         allowNull: false,
-        references: {
-          model: 'Users', // assuming you have a Users table
-          key: 'id',
-        },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
@@ -67,4 +64,3 @@ module.exports = {
     await queryInterface.dropTable('Posts');
   }
 };
-
