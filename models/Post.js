@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
         },
         userId: {
-            type: DataTypes.INTEGER,
+            type: Sequelize.BIGINT,
             allowNull: false,
         },
         pageId: {
