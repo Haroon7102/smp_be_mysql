@@ -1,7 +1,9 @@
+
+
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Social Manager Pro is a web-based platform that allows users to manage and schedule posts across multiple social media platforms such as Facebook and Instagram. The app also integrates AI-generated captions and provides an analytics dashboard for tracking post performance.",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
@@ -17,12 +19,14 @@
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.21.1",
     "express-session": "^1.18.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.9.0",
     "mongoose": "^7.8.2",
+    "multer": "^1.4.5-lts.1",
     "mysql2": "^3.11.3",
+    "node-fetch": "^2.7.0",
     "openai": "^4.62.0",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
@@ -34,4 +38,5 @@
     "sequelize": "^6.37.4",
     "sequelize-cli": "^6.6.2"
   }
+  
 }

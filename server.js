@@ -15,7 +15,8 @@ const authMiddleware = require('./middleware/middleware');
 const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
 const Post = require('./models/Post'); // Adjust the path as necessary
-const facebookRoutes = require('./auth/facebookRoutes');
+// const facebookRoutes = require('./auth/facebookRoutes');
+const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
     origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
 }));
+
 app.use(bodyParser.json());
 
 // Initialize session and passport
@@ -31,7 +33,10 @@ app.use(session({ secret: 'your-secret', resave: false, saveUninitialized: true 
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/facebook', facebookRoutes);
+// app.use('/facebook', facebookRoutes);
+
+// Use the upload router
+app.use('/facebook-upload', facebookUploadRouter);
 
 
 // Public Route
