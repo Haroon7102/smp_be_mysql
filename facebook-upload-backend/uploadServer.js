@@ -146,9 +146,18 @@ const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
+const cors = require('cors');
+require('dotenv').config();
+
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
-require('dotenv').config();
+
+// CORS setup
+router.use(cors({
+    origin: 'https://smpfe.netlify.app',
+    methods: ['POST'],
+    credentials: true
+}));
 
 // Endpoint to handle file uploads to Facebook or log other files
 router.post('/upload', upload.array('files', 10), async (req, res) => {
@@ -168,17 +177,14 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const fileType = file.mimetype.split('/')[0];
 
                 if (fileType === 'image' || fileType === 'video') {
-                    // Image or video upload to Facebook
                     const uploadResult = await uploadMediaToFacebook(pageId, accessToken, file, caption);
                     results.push(uploadResult);
                 } else {
-                    // Log document or other file types
                     console.log(`Received a ${file.mimetype} file: ${file.originalname}`);
                 }
             }
             return res.json({ results });
         } else if (caption) {
-            // Only caption without a file
             const postResult = await postMessageToFacebook(pageId, accessToken, caption);
             return res.json({ result: postResult });
         } else {
@@ -194,9 +200,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 const uploadMediaToFacebook = async (pageId, accessToken, file, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    if (caption) formData.append('caption', caption);
+    if (caption) formData.append('caption', caption); // Use 'description' for videos
 
-    const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
+    const endpoint = file.mimetype.startsWith('video/')
+        ? `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`
+        : `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`;
+
+    const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
         headers: formData.getHeaders(), // Required to set correct headers

@@ -22,9 +22,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware setup
-app.use(cors({
-    origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
-}));
+// app.use(cors({
+//     origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
+// }));
+app.use(cors()); // Enable CORS for all origins
+
 
 app.use(bodyParser.json());
 
