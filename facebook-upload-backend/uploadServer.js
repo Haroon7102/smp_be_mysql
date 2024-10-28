@@ -160,6 +160,7 @@ router.use(cors({
 }));
 
 // Endpoint to handle file uploads to Facebook or log other files
+// Endpoint to handle file uploads to Facebook or log other files
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files; // Get multiple files
@@ -170,20 +171,26 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        if (files && files.length > 0) {
-            const results = [];
+        const mediaIDs = [];
 
+        if (files && files.length > 0) {
             for (const file of files) {
                 const fileType = file.mimetype.split('/')[0];
 
                 if (fileType === 'image' || fileType === 'video') {
+                    // Upload each media and collect the media ID
                     const uploadResult = await uploadMediaToFacebook(pageId, accessToken, file, caption);
-                    results.push(uploadResult);
+                    mediaIDs.push(uploadResult.id); // Store the media ID
                 } else {
                     console.log(`Received a ${file.mimetype} file: ${file.originalname}`);
                 }
             }
-            return res.json({ results });
+
+            // Once all media is uploaded, create a post with all media IDs
+            if (mediaIDs.length > 0) {
+                const postResult = await createPostWithMedia(pageId, accessToken, caption, mediaIDs);
+                return res.json({ result: postResult });
+            }
         } else if (caption) {
             const postResult = await postMessageToFacebook(pageId, accessToken, caption);
             return res.json({ result: postResult });
@@ -196,11 +203,34 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 });
 
+// Function to create a post with media
+const createPostWithMedia = async (pageId, accessToken, caption, mediaIDs) => {
+    const url = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+    const body = {
+        message: caption,
+        attached_media: mediaIDs.map(id => ({ media_fbid: id })),
+        access_token: accessToken,
+    };
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to create post with media: ' + (await response.text()));
+    }
+    return await response.json();
+};
+
 // Function to upload media (image or video) to Facebook
 const uploadMediaToFacebook = async (pageId, accessToken, file, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    if (caption) formData.append('caption', caption); // Use 'description' for videos
+    if (caption) formData.append('caption', caption);
 
     const endpoint = file.mimetype.startsWith('video/')
         ? `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`
@@ -215,18 +245,5 @@ const uploadMediaToFacebook = async (pageId, accessToken, file, caption) => {
     if (!response.ok) {
         throw new Error('Failed to upload media to Facebook: ' + (await response.text()));
     }
-    return await response.json();
+    return await response.json(); // Return the response which includes the media ID
 };
-
-// Function to post only a message to Facebook
-const postMessageToFacebook = async (pageId, accessToken, caption) => {
-    const url = `https://graph.facebook.com/v21.0/${pageId}/feed?access_token=${accessToken}&message=${encodeURIComponent(caption)}`;
-    const response = await fetch(url, { method: 'POST' });
-
-    if (!response.ok) {
-        throw new Error('Failed to post message to Facebook: ' + (await response.text()));
-    }
-    return await response.json();
-};
-
-module.exports = router;
