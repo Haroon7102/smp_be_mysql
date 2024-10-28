@@ -151,9 +151,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 require('dotenv').config();
 
 // Endpoint to handle file uploads to Facebook or log other files
-router.post('/upload', upload.array('files'), async (req, res) => {
+router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files; // Get multiple files
+    console.log(req.files); // Array of uploaded files
 
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
