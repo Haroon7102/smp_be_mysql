@@ -9,12 +9,10 @@ const InstagramStrategy = require('passport-instagram').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { sequelize } = require('./models');
 const authRoutes = require('./auth/authRoutes');
-const postRoutes = require('./auth/postRoutes'); // Import your post routes
 const { generateCaption } = require('./openai/openaiservice');
 const authMiddleware = require('./middleware/middleware');
 const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
-const Post = require('./models/Post'); // Adjust the path as necessary
 // const facebookRoutes = require('./auth/facebookRoutes');
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
 
@@ -54,8 +52,6 @@ app.get('/', (req, res) => {
 // Authentication Routes
 app.use('/auth', authRoutes);
 
-// Post Routes
-app.use('/post', postRoutes); // Ensure you use the post routes
 
 
 // Example of a protected route
