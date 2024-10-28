@@ -386,27 +386,31 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        if (files && files.length > 0) {
-            const photoIds = [];
+        const photoIds = [];
 
-            // Upload images individually and save media IDs
-            for (const file of files) {
+        if (files && files.length > 0) {
+            // Upload images in parallel using Promise.all
+            const uploadPromises = files.map(file => {
                 const formData = new FormData();
                 formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
                 formData.append('published', 'false');
 
-                const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
+                return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
                     method: 'POST',
                     body: formData,
                     headers: formData.getHeaders(),
-                });
+                })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (!result.id) {
+                            throw new Error(`Photo upload failed: ${result.error.message}`);
+                        }
+                        photoIds.push({ media_fbid: result.id });
+                    });
+            });
 
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(`Failed to upload photo: ${result.error.message}`);
-                }
-                photoIds.push({ media_fbid: result.id });
-            }
+            // Await all uploads
+            await Promise.all(uploadPromises);
 
             // Create a single post attaching all photos
             const postData = {
@@ -426,7 +430,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             }
 
             res.json({ success: true, postId: postResult.id });
-
         } else if (caption) {
             // Only caption without images
             const postResult = await postMessageToFacebook(pageId, accessToken, caption);
@@ -439,5 +442,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 module.exports = router;
