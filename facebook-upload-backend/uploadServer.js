@@ -141,62 +141,172 @@
 // module.exports = router;
 
 
+
+// const express = require('express');
+// const fetch = require('node-fetch');
+// const multer = require('multer');
+// const FormData = require('form-data');
+// const cors = require('cors');
+// require('dotenv').config();
+
+// const router = express.Router();
+// const upload = multer({ storage: multer.memoryStorage() });
+
+// // CORS setup
+// router.use(cors({
+//     origin: 'https://smpfe.netlify.app',
+//     methods: ['POST'],
+//     credentials: true
+// }));
+
+// // Endpoint to handle file uploads to Facebook or log other files
+// router.post('/upload', upload.array('files', 10), async (req, res) => {
+//     const { accessToken, pageId, caption } = req.body;
+//     const files = req.files; // Get multiple files
+//     console.log(req.files); // Array of uploaded files
+
+//     if (!accessToken || !pageId) {
+//         return res.status(400).json({ error: 'Access token and page ID are required.' });
+//     }
+
+//     try {
+//         if (files && files.length > 0) {
+//             const results = [];
+
+//             for (const file of files) {
+//                 const fileType = file.mimetype.split('/')[0];
+
+//                 if (fileType === 'image' || fileType === 'video') {
+//                     const uploadResult = await uploadMediaToFacebook(pageId, accessToken, file, caption);
+//                     results.push(uploadResult);
+//                 } else {
+//                     console.log(`Received a ${file.mimetype} file: ${file.originalname}`);
+//                 }
+//             }
+//             return res.json({ results });
+//         } else if (caption) {
+//             const postResult = await postMessageToFacebook(pageId, accessToken, caption);
+//             return res.json({ result: postResult });
+//         } else {
+//             return res.status(400).json({ error: 'Either files or a caption is required.' });
+//         }
+//     } catch (error) {
+//         console.error('Error during upload:', error);
+//         res.status(500).json({ error: 'Upload failed', details: error.message });
+//     }
+// });
+
+// // Function to upload media (image or video) to Facebook
+// const uploadMediaToFacebook = async (pageId, accessToken, file, caption) => {
+//     const formData = new FormData();
+//     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+//     if (caption) formData.append('caption', caption); // Use 'description' for videos
+
+//     const endpoint = file.mimetype.startsWith('video/')
+//         ? `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`
+//         : `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`;
+
+//     const response = await fetch(endpoint, {
+//         method: 'POST',
+//         body: formData,
+//         headers: formData.getHeaders(), // Required to set correct headers
+//     });
+
+//     if (!response.ok) {
+//         throw new Error('Failed to upload media to Facebook: ' + (await response.text()));
+//     }
+//     return await response.json();
+// };
+
+// // Function to post only a message to Facebook
+// const postMessageToFacebook = async (pageId, accessToken, caption) => {
+//     const url = `https://graph.facebook.com/v21.0/${pageId}/feed?access_token=${accessToken}&message=${encodeURIComponent(caption)}`;
+//     const response = await fetch(url, { method: 'POST' });
+
+//     if (!response.ok) {
+//         throw new Error('Failed to post message to Facebook: ' + (await response.text()));
+//     }
+//     return await response.json();
+// };
+
+// module.exports = router;
+
+
+
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const cors = require('cors');
+
+// CORS setup
+router.use(cors({
+    origin: 'https://smpfe.netlify.app',
+    methods: ['POST'],
+    credentials: true
+}));
 
 require('dotenv').config();
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
-    if (!accessToken || !pageId || files.length === 0) {
-        return res.status(400).json({ error: 'Access token, page ID, and files are required.' });
+
+    if (!accessToken || !pageId) {
+        return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     try {
-        const photoIds = [];
+        if (files && files.length > 0) {
+            const photoIds = [];
 
-        // Step 1: Upload each image individually to Facebook (unpublished)
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-            formData.append('published', 'false');
+            // Upload images individually and save media IDs
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+                formData.append('published', 'false');
 
-            const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
+                const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: formData.getHeaders(),
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(`Failed to upload photo: ${result.error.message}`);
+                }
+                photoIds.push({ media_fbid: result.id });
+            }
+
+            // Create a single post attaching all photos
+            const postData = {
+                attached_media: JSON.stringify(photoIds),
+                access_token: accessToken,
+            };
+            if (caption) postData.message = caption;
+
+            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
                 method: 'POST',
-                body: formData,
-                headers: formData.getHeaders(),
+                body: new URLSearchParams(postData),
             });
 
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(`Failed to upload photo: ${result.error.message}`);
+            const postResult = await postResponse.json();
+            if (!postResponse.ok) {
+                throw new Error(`Failed to create post: ${postResult.error.message}`);
             }
-            photoIds.push({ media_fbid: result.id });
+
+            res.json({ success: true, postId: postResult.id });
+
+        } else if (caption) {
+            // Only caption without images
+            const postResult = await postMessageToFacebook(pageId, accessToken, caption);
+            return res.json({ result: postResult });
+        } else {
+            return res.status(400).json({ error: 'Either files or a caption is required.' });
         }
-
-        // Step 2: Create a post that attaches all uploaded photos
-        const postData = {
-            attached_media: JSON.stringify(photoIds),
-            access_token: accessToken,
-        };
-        if (caption) postData.message = caption;
-
-        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-            method: 'POST',
-            body: new URLSearchParams(postData),
-        });
-
-        const postResult = await postResponse.json();
-        if (!postResponse.ok) {
-            throw new Error(`Failed to create post: ${postResult.error.message}`);
-        }
-
-        res.json({ success: true, postId: postResult.id });
     } catch (error) {
         console.error('Error during upload:', error);
         res.status(500).json({ error: 'Upload failed', details: error.message });
