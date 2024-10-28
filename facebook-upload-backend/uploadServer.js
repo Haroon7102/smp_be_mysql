@@ -66,10 +66,10 @@
 
 // module.exports = router;
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
+const FormData = require('form-data'); // Import form-data
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 require('dotenv').config();
@@ -94,7 +94,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             } else {
                 // Document or other file types; save to server or database if needed
                 console.log(`Received a ${file.mimetype} file: ${file.originalname}`);
-                // You can choose to save the file buffer to your server or database here if needed.
                 return res.json({ message: `File ${file.originalname} received but not uploaded to Facebook.` });
             }
         } else if (caption) {
@@ -113,12 +112,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // Function to upload media (image or video) to Facebook
 const uploadMediaToFacebook = async (pageId, accessToken, file, caption) => {
     const formData = new FormData();
-    formData.append('source', file.buffer, { filename: file.originalname });
+    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     if (caption) formData.append('caption', caption);
 
     const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
         method: 'POST',
         body: formData,
+        headers: formData.getHeaders(), // Required to set correct headers
     });
 
     if (!response.ok) {
