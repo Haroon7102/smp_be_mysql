@@ -193,3 +193,23 @@ app.post('/generate-caption', async (req, res) => {
         res.status(500).json({ error: 'Error generating caption' });
     }
 });
+
+const VERIFY_TOKEN = 'IGQWRPNDVWUXh6RmpDWWZAIUUhFRjhsUWYxRUIyOUVMUkFGUTROQm5EZAW1zUW9tZAXVZAN3dHYlhmOGlqd0lqbzRCcEdyZA1ZAFLWFHX3lnR0xyVzhEbHRNQ0haSHlMMm9HVzBHMzdkNlFaOURWZA1J3WHRub3BZAa0N6WWsZD';
+
+// Webhook verification endpoint
+app.get('/callback', (req, res) => {
+    if (req.query['hub.mode'] === 'subscribe' &&
+        req.query['hub.verify_token'] === VERIFY_TOKEN) {
+        console.log('Webhook verified');
+        res.status(200).send(req.query['hub.challenge']);
+    } else {
+        res.sendStatus(403); // Forbidden
+    }
+});
+
+// Webhook data handling endpoint
+app.post('/callback', (req, res) => {
+    console.log('Webhook received:', req.body);
+    // Handle the incoming data (e.g., store it in the database, process it, etc.)
+    res.sendStatus(200); // Respond with 200 OK
+});
