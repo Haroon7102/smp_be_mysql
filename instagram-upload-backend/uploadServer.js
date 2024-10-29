@@ -10,12 +10,13 @@ router.get('/auth/callback', async (req, res) => {
             client_id: '1199616704485910',
             client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
             grant_type: 'authorization_code',
-            redirect_uri: 'https://smpfe.netlify.app/dashboard',
+            redirect_uri: 'https://smpfe.netlify.app/auth/callback',
             code
         });
 
         const accessToken = response.data.access_token;
         // Store accessToken and other relevant data as needed.
+        res.redirect('/dashboard');
 
         res.send('Logged in successfully');
     } catch (error) {
