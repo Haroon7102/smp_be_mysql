@@ -15,6 +15,7 @@ const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
 // const facebookRoutes = require('./auth/facebookRoutes');
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
+const instagramuploadrouter = require('./instagram-upload-backend/uploadServer.js')
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,7 +43,7 @@ app.use(passport.session());
 
 // Use the upload router
 app.use('/facebook-upload', facebookUploadRouter);
-
+app.use('/instagram-upload', instagramuploadrouter);
 
 // Public Route
 app.get('/', (req, res) => {
@@ -115,15 +116,6 @@ passport.use(new GoogleStrategy({
     }
 ));
 
-// Facebook authentication routes
-// app.get('/auth/facebook', passport.authenticate('facebook'));
-
-// app.get('/auth/facebook/callback',
-//     passport.authenticate('facebook', { failureRedirect: '/' }),
-//     (req, res) => {
-//         res.redirect('/'); // Redirect to your front-end route
-//     }
-// );
 
 // Instagram authentication routes
 app.get('/auth/instagram', passport.authenticate('instagram'));
@@ -160,17 +152,6 @@ app.get('/auth/user', authMiddleware, (req, res) => {
         res.status(401).json({ error: 'Unauthorized' });
     }
 });
-
-// // Start the server and connect to the database
-// sequelize.authenticate()
-//     .then(() => {
-//         console.log('Database connected...');
-//         app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-//     })
-//     .catch(err => {
-//         console.error('Unable to connect to the database:', err);
-//         process.exit(1); // Exit the process if the connection fails
-//     });
 
 
 // Start the server and connect to the database
