@@ -194,8 +194,7 @@ app.post('/generate-caption', async (req, res) => {
     }
 });
 
-const VERIFY_TOKEN = 'IGQWRPQm5uTTNIdVlfbXBCV1NOV1RnNzJScTJhUWlEUDNpeU5WdG5XSEhicFlVVElCWTFPYmotdlpnYVh6X2M5NHpnVEdUY1VSTVYxZAXJ4ZAktmX1doUi1MUmgyLWYwWG5HQjUzZAVlFU3pYX2xiQ0k4SGtnanhQVlUZD';
-
+const VERIFY_TOKEN = 'IGQWRPNDVWUXh6RmpDWWZAIUUhFRjhsUWYxRUIyOUVMUkFGUTROQm5EZAW1zUW9tZAXVZAN3dHYlhmOGlqd0lqbzRCcEdyZA1ZAFLWFHX3lnR0xyVzhEbHRNQ0haSHlMMm9HVzBHMzdkNlFaOURWZA1J3WHRub3BZAa0N6WWsZD';
 // Webhook verification endpoint
 app.get('/callback', (req, res) => {
     if (req.query['hub.mode'] === 'subscribe' &&
