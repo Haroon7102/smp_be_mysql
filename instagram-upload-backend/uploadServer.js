@@ -10,18 +10,17 @@ router.get('/auth/callback', async (req, res) => {
             client_id: '1199616704485910',
             client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
             grant_type: 'authorization_code',
-            redirect_uri: 'https://smpfe.netlify.app/auth/callback',
+            redirect_uri: 'https://smpfe.netlify.app/auth/callback', // Must match exactly with the URL used in the initial request
             code
         });
 
         const accessToken = response.data.access_token;
-        // Store accessToken and other relevant data as needed.
-        res.redirect('/dashboard');
 
-        res.send('Logged in successfully');
+        // Pass the login success as a query parameter
+        res.redirect(`https://smpfe.netlify.app/dashboard?logged_in=true`);
     } catch (error) {
-        console.error('Error exchanging code for access token:', error);
-        res.status(500).send('Error logging in');
+        console.error('Error exchanging code for access token:', error.response?.data || error.message);
+        res.redirect(`https://smpfe.netlify.app/dashboard?logged_in=false`);
     }
 });
 
