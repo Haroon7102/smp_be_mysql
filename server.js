@@ -194,21 +194,31 @@ app.post('/generate-caption', async (req, res) => {
     }
 });
 
-const VERIFY_TOKEN = 'IGQWRPNDVWUXh6RmpDWWZAIUUhFRjhsUWYxRUIyOUVMUkFGUTROQm5EZAW1zUW9tZAXVZAN3dHYlhmOGlqd0lqbzRCcEdyZA1ZAFLWFHX3lnR0xyVzhEbHRNQ0haSHlMMm9HVzBHMzdkNlFaOURWZA1J3WHRub3BZAa0N6WWsZD';
-// Webhook verification endpoint
-app.get('/callback', (req, res) => {
-    if (req.query['hub.mode'] === 'subscribe' &&
-        req.query['hub.verify_token'] === VERIFY_TOKEN) {
-        console.log('Webhook verified');
-        res.status(200).send(req.query['hub.challenge']);
+
+// Verification endpoint for Instagram Webhook
+router.get('/callback', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    // Use a verify token (set this in your Instagram app and your backend .env)
+    const VERIFY_TOKEN = 'IGQWRQRjZAaY3V1LVBKQlpkVktHM3h0ZAFpkRkR0bU1TbktoenRpektfS2NRSndzM2l4T3lQenJFRF9IUGZAWNlhSM0dZAOVBzTlJ4dHBlc2d2Q1hFR1lfTmQyWVRoYnNvRmJnenVuajB3OW9VRHVWb3VfM29NdW5EenMZD';
+
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('WEBHOOK_VERIFIED');
+        res.status(200).send(challenge); // Respond with the challenge to verify
     } else {
-        res.sendStatus(403); // Forbidden
+        res.sendStatus(403); // Invalid verification
     }
 });
 
-// Webhook data handling endpoint
-app.post('/callback', (req, res) => {
-    console.log('Webhook received:', req.body);
-    // Handle the incoming data (e.g., store it in the database, process it, etc.)
-    res.sendStatus(200); // Respond with 200 OK
+// Endpoint to handle incoming webhook events
+router.post('/callback', (req, res) => {
+    // Log the event data (could be for media updates, comments, etc.)
+    console.log('Webhook event received:', req.body);
+
+    // Process the event data as needed
+    // Example: storing data, sending notifications, etc.
+
+    res.sendStatus(200); // Respond with a 200 OK status
 });
