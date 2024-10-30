@@ -2,9 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-router.get('/auth/callback', async (req, res) => {
+router.get('/callback', async (req, res) => {
     const { code } = req.query;
-
+    console.log('hitting instagram call back')
     try {
         const response = await axios.post('https://api.instagram.com/oauth/access_token', {
             client_id: '1199616704485910',
