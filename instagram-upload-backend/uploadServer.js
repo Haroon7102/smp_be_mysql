@@ -10,7 +10,7 @@ router.get('/callback', async (req, res) => {
             client_id: '1199616704485910',
             client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
             grant_type: 'authorization_code',
-            redirect_uri: 'https://smpfe.netlify.app/auth/callback', // Must match exactly with the URL used in the initial request
+            redirect_uri: 'https://smpfe.netlify.app/instagram-upload/callback', // Must match exactly with the URL used in the initial request
             code
         });
 
