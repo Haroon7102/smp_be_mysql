@@ -45,11 +45,13 @@ router.get('/callback', async (req, res) => {
         });
 
         console.log('Access Token Response:', response.data);
-        res.redirect(`https://smpfe.netlify.app/dashboard?logged_in=true`);
+        res.redirect('https://smpfe.netlify.app/dashboard');
 
         // ... rest of the logic
     } catch (error) {
         console.error('Error exchanging code for access token:', error.response?.data || error.message);
+        res.status(500).send('Authentication failed');
+
         // ... rest of the error handling
     }
 });
