@@ -16,10 +16,14 @@ router.get('/auth/callback', async (req, res) => {
 
         const accessToken = response.data.access_token;
 
-        // Pass the login success as a query parameter
+        // Store the accessToken securely on your backend as needed for further actions
+
+        // Redirect to the dashboard with login success status
         res.redirect(`https://smpfe.netlify.app/dashboard?logged_in=true`);
     } catch (error) {
         console.error('Error exchanging code for access token:', error.response?.data || error.message);
+
+        // Redirect to the dashboard with login failure status
         res.redirect(`https://smpfe.netlify.app/dashboard?logged_in=false`);
     }
 });
