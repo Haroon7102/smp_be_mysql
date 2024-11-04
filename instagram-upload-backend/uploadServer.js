@@ -12,24 +12,40 @@ router.use(cors({
     methods: ['POST'],
     credentials: true
 }));
-router.post('/instagram-upload/upload', async (req, res) => {
-    const { instagramAccountId, accessToken, message, mediaUrl } = req.body;
+// // Add this to your backend router
+router.post('/upload', upload.single('file'), async (req, res) => {
+    const { instagramAccountId, caption, accessToken } = req.body;
+    const mediaUrl = req.file ? `path/to/uploaded/media/${req.file.filename}` : null;
 
     try {
-        // Post to Instagram
-        const response = await axios.post(
-            `https://graph.facebook.com/v20.0/${instagramAccountId}/media`,
-            {
+        const createMediaResponse = await fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media`, {
+            method: 'POST',
+            body: new URLSearchParams({
                 image_url: mediaUrl,
-                caption: message,
-                access_token: accessToken
-            }
-        );
+                caption,
+                access_token: accessToken,
+            }),
+        });
 
-        res.status(200).json({ success: true, data: response.data });
+        const createMediaResult = await createMediaResponse.json();
+        if (!createMediaResponse.ok) throw new Error(createMediaResult.error.message);
+
+        // Publish the media to Instagram
+        const publishResponse = await fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media_publish`, {
+            method: 'POST',
+            body: new URLSearchParams({
+                creation_id: createMediaResult.id,
+                access_token: accessToken,
+            }),
+        });
+
+        const publishResult = await publishResponse.json();
+        if (!publishResponse.ok) throw new Error(publishResult.error.message);
+
+        res.json(publishResult);
     } catch (error) {
-        console.error('Instagram upload error:', error);
-        res.status(500).json({ success: false, error: 'Instagram upload failed.' });
+        res.status(500).json({ error: error.message });
     }
 });
+
 module.exports = router;
