@@ -67,25 +67,90 @@
 
 
 
+// const express = require('express');
+// const multer = require('multer');
+// const fetch = require('node-fetch');
+// const FormData = require('form-data');
+
+// const router = express.Router();
+// const upload = multer(); // Configure multer as needed
+
+// router.post('/upload', upload.single('image'), async (req, res) => {
+//     const { code, caption } = req.body;
+//     const image = req.file;
+
+//     if (!code || !image) {
+//         return res.status(400).json({ success: false, message: 'Missing required data' });
+//     }
+
+//     try {
+//         // Exchange code for an access token with Instagram
+//         const tokenResponse = await fetch(`https://api.instagram.com/oauth/access_token`, {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+//             body: new URLSearchParams({
+//                 client_id: '1199616704485910',
+//                 client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
+//                 grant_type: 'authorization_code',
+//                 redirect_uri: 'https://smpfe.netlify.app/dashboard',
+//                 code
+//             })
+//         });
+//         const tokenData = await tokenResponse.json();
+//         const accessToken = tokenData.access_token;
+
+//         if (!accessToken) {
+//             return res.status(500).json({ success: false, message: 'Failed to obtain access token' });
+//         }
+
+//         // Upload the image and caption to Instagram
+//         const formData = new FormData();
+//         formData.append('image', image.buffer, image.originalname);
+//         formData.append('caption', caption);
+//         formData.append('access_token', accessToken);
+
+//         const postResponse = await fetch('https://graph.instagram.com/v12.0/USER_ID/media', {
+//             method: 'POST',
+//             body: formData
+//         });
+//         const postResult = await postResponse.json();
+
+//         if (postResult.id) {
+//             res.json({ success: true, message: 'Post created successfully', postId: postResult.id });
+//         } else {
+//             res.status(500).json({ success: false, message: 'Failed to post to Instagram', error: postResult });
+//         }
+//     } catch (error) {
+//         console.error('Error:', error);
+//         res.status(500).json({ success: false, message: 'Internal server error', error });
+//     }
+// });
+
+// module.exports = router;
+
+
+
+
+
 const express = require('express');
 const multer = require('multer');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 
 const router = express.Router();
-const upload = multer(); // Configure multer as needed
+const upload = multer(); // Use multer to handle file uploads
 
-router.post('/upload', upload.single('image'), async (req, res) => {
-    const { code, caption } = req.body;
+router.post('/instagram-upload/upload', upload.single('image'), async (req, res) => {
+    const { caption, code } = req.body;
     const image = req.file;
 
     if (!code || !image) {
-        return res.status(400).json({ success: false, message: 'Missing required data' });
+        return res.status(400).json({ success: false, message: 'Missing required data: code or image' });
     }
 
     try {
-        // Exchange code for an access token with Instagram
-        const tokenResponse = await fetch(`https://api.instagram.com/oauth/access_token`, {
+        // Step 1: Exchange code for access token
+        const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -96,23 +161,26 @@ router.post('/upload', upload.single('image'), async (req, res) => {
                 code
             })
         });
-        const tokenData = await tokenResponse.json();
-        const accessToken = tokenData.access_token;
 
-        if (!accessToken) {
-            return res.status(500).json({ success: false, message: 'Failed to obtain access token' });
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenData.access_token) {
+            return res.status(500).json({ success: false, message: 'Failed to obtain access token', error: tokenData });
         }
 
-        // Upload the image and caption to Instagram
+        const accessToken = tokenData.access_token;
+
+        // Step 2: Upload image with caption to Instagram
         const formData = new FormData();
-        formData.append('image', image.buffer, image.originalname);
         formData.append('caption', caption);
+        formData.append('image', image.buffer, image.originalname);
         formData.append('access_token', accessToken);
 
         const postResponse = await fetch('https://graph.instagram.com/v12.0/USER_ID/media', {
             method: 'POST',
             body: formData
         });
+
         const postResult = await postResponse.json();
 
         if (postResult.id) {
