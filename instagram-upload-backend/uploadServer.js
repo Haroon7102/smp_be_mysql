@@ -131,98 +131,181 @@
 
 
 
+// const express = require('express');
+// const multer = require('multer');
+// const fetch = require('node-fetch');
+// const FormData = require('form-data');
+
+// const router = express.Router();
+// const upload = multer(); // Use multer to handle file uploads
+
+// router.post('/upload', upload.single('image'), async (req, res) => {
+//     const { caption, code } = req.body;
+//     const image = req.file;
+
+//     if (!code || !image) {
+//         return res.status(400).json({ success: false, message: 'Missing required data: code or image' });
+//     }
+
+//     try {
+//         // Step 1: Exchange code for access token
+//         const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+//             body: new URLSearchParams({
+//                 client_id: '1199616704485910',
+//                 client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
+//                 grant_type: 'authorization_code',
+//                 redirect_uri: 'https://smpfe.netlify.app/dashboard',
+//                 code
+//             })
+//         });
+
+//         // Log the response status and body
+//         console.log(`Token Response Status: ${tokenResponse.status}`);
+//         const tokenData = await tokenResponse.json();
+//         console.log('Token Data:', tokenData); // Log the token data
+
+//         if (!tokenResponse.ok) {
+//             return res.status(tokenResponse.status).json({
+//                 success: false,
+//                 message: 'Failed to obtain access token',
+//                 error: tokenData
+//             });
+//         }
+
+//         // Check if access token is present
+//         if (!tokenData.access_token) {
+//             return res.status(500).json({ success: false, message: 'Access token not received', error: tokenData });
+//         }
+
+//         const accessToken = tokenData.access_token;
+
+//         // Log the access token (be careful with logging sensitive information)
+//         console.log('Access Token:', accessToken);
+
+//         // Step 2: Upload the image and caption to Instagram
+//         const formData = new FormData();
+//         formData.append('image', image.buffer, image.originalname);
+//         formData.append('caption', caption);
+//         formData.append('access_token', accessToken);
+
+//         const postResponse = await fetch('https://graph.instagram.com/v12.0/me/media', {
+//             method: 'POST',
+//             body: formData,
+//         });
+
+//         const postResult = await postResponse.json();
+
+//         if (postResult.id) {
+//             // Step 3: Publish the media
+//             const publishResponse = await fetch(`https://graph.instagram.com/v12.0/me/media_publish`, {
+//                 method: 'POST',
+//                 headers: {
+//                     'Content-Type': 'application/json',
+//                 },
+//                 body: JSON.stringify({
+//                     creation_id: postResult.id,
+//                     access_token: accessToken,
+//                 }),
+//             });
+
+//             const publishResult = await publishResponse.json();
+
+//             if (publishResult.id) {
+//                 res.json({ success: true, message: 'Post created successfully', postId: publishResult.id });
+//             } else {
+//                 res.status(500).json({ success: false, message: 'Failed to publish post', error: publishResult });
+//             }
+//         } else {
+//             res.status(500).json({ success: false, message: 'Failed to create media object', error: postResult });
+//         }
+//     } catch (error) {
+//         console.error('Error:', error);
+//         res.status(500).json({ success: false, message: 'Internal server error', error });
+//     }
+// });
+
+// module.exports = router;
+
+
+
+
+
+/// instagramRoutes.js
 const express = require('express');
+const axios = require('axios');
 const multer = require('multer');
-const fetch = require('node-fetch');
-const FormData = require('form-data');
+const upload = multer({ dest: 'uploads/' }); // Set up file storage
 
 const router = express.Router();
-const upload = multer(); // Use multer to handle file uploads
 
-router.post('/upload', upload.single('image'), async (req, res) => {
-    const { caption, code } = req.body;
-    const image = req.file;
+// Instagram OAuth client credentials
+const clientId = '1199616704485910'; // Replace with your Instagram App Client ID
+const clientSecret = '35b13ad41ab9c6560e0f6710bd54a033'; // Replace with your Instagram App Client Secret
 
-    if (!code || !image) {
-        return res.status(400).json({ success: false, message: 'Missing required data: code or image' });
+// In-memory store for access token and user ID (for demonstration purposes)
+let instagramAccessToken = null; // Store access token
+let instagramUserId = null; // Store user ID
+
+// Handle the code exchange for access token
+router.post('/token', async (req, res) => {
+    const { code, redirect_uri } = req.body;
+
+    if (!code || !redirect_uri) {
+        return res.status(400).json({ success: false, message: 'Code or redirect_uri missing' });
     }
 
     try {
-        // Step 1: Exchange code for access token
-        const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                client_id: '1199616704485910',
-                client_secret: '35b13ad41ab9c6560e0f6710bd54a033',
-                grant_type: 'authorization_code',
-                redirect_uri: 'https://smpfe.netlify.app/dashboard',
-                code
-            })
+        const tokenResponse = await axios.post('https://api.instagram.com/oauth/access_token', {
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: 'authorization_code',
+            redirect_uri,
+            code,
         });
 
-        // Log the response status and body
-        console.log(`Token Response Status: ${tokenResponse.status}`);
-        const tokenData = await tokenResponse.json();
-        console.log('Token Data:', tokenData); // Log the token data
+        instagramAccessToken = tokenResponse.data.access_token; // Store access token
+        instagramUserId = tokenResponse.data.user_id; // Store user ID (make sure this is available in the response)
 
-        if (!tokenResponse.ok) {
-            return res.status(tokenResponse.status).json({
-                success: false,
-                message: 'Failed to obtain access token',
-                error: tokenData
-            });
-        }
-
-        // Check if access token is present
-        if (!tokenData.access_token) {
-            return res.status(500).json({ success: false, message: 'Access token not received', error: tokenData });
-        }
-
-        const accessToken = tokenData.access_token;
-
-        // Log the access token (be careful with logging sensitive information)
-        console.log('Access Token:', accessToken);
-
-        // Step 2: Upload the image and caption to Instagram
-        const formData = new FormData();
-        formData.append('image', image.buffer, image.originalname);
-        formData.append('caption', caption);
-        formData.append('access_token', accessToken);
-
-        const postResponse = await fetch('https://graph.instagram.com/v12.0/me/media', {
-            method: 'POST',
-            body: formData,
-        });
-
-        const postResult = await postResponse.json();
-
-        if (postResult.id) {
-            // Step 3: Publish the media
-            const publishResponse = await fetch(`https://graph.instagram.com/v12.0/me/media_publish`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    creation_id: postResult.id,
-                    access_token: accessToken,
-                }),
-            });
-
-            const publishResult = await publishResponse.json();
-
-            if (publishResult.id) {
-                res.json({ success: true, message: 'Post created successfully', postId: publishResult.id });
-            } else {
-                res.status(500).json({ success: false, message: 'Failed to publish post', error: publishResult });
-            }
-        } else {
-            res.status(500).json({ success: false, message: 'Failed to create media object', error: postResult });
-        }
+        return res.status(200).json({ success: true, accessToken: instagramAccessToken });
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error', error });
+        console.error('Error exchanging code for token:', error);
+        return res.status(400).json({ success: false, message: 'Error exchanging code for token' });
+    }
+});
+
+// Handle posting to Instagram
+router.post('/upload', upload.single('image'), async (req, res) => {
+    const { caption } = req.body;
+    const image = req.file; // Get the uploaded file
+
+    if (!caption || !image) {
+        return res.status(400).json({ success: false, message: 'Caption or image missing' });
+    }
+
+    try {
+        // Here, you should upload the image to a public URL
+        // This is a placeholder for where you would upload your image
+        const imageUrl = `URL_OF_UPLOADED_IMAGE`; // You need to replace this with the URL where the image will be accessible
+
+        // Post to Instagram using the Instagram Graph API
+        const response = await axios.post(`https://graph.facebook.com/v12.0/${instagramUserId}/media`, {
+            caption,
+            image_url: imageUrl, // Make sure this points to the accessible image URL
+            access_token: instagramAccessToken, // Use the stored access token
+        });
+
+        // Publish the media object
+        const creationResponse = await axios.post(`https://graph.facebook.com/v12.0/${instagramUserId}/media_publish`, {
+            creation_id: response.data.id, // Use the media ID from the previous response
+            access_token: instagramAccessToken,
+        });
+
+        return res.status(200).json({ success: true, data: creationResponse.data });
+    } catch (error) {
+        console.error('Error posting to Instagram:', error);
+        return res.status(400).json({ success: false, message: 'Error posting to Instagram' });
     }
 });
 
