@@ -243,8 +243,8 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Instagram OAuth client credentials
-const clientId = 'YOUR_CLIENT_ID'; // Replace with your Instagram App Client ID
-const clientSecret = 'YOUR_CLIENT_SECRET'; // Replace with your Instagram App Client Secret
+const clientId = '1199616704485910'; // Replace with your Instagram App Client ID
+const clientSecret = '35b13ad41ab9c6560e0f6710bd54a033'; // Replace with your Instagram App Client Secret
 
 // In-memory store for access token and user ID (for demonstration purposes)
 let instagramAccessToken = null; // Store access token
