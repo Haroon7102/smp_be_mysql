@@ -235,8 +235,13 @@
 const express = require('express');
 const axios = require('axios');
 const multer = require('multer');
+const bodyParser = require('body-parser');
 
 const router = express.Router();
+const app = express();
+
+// Middleware to parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Multer configuration to store the file in memory
 const storage = multer.memoryStorage();
