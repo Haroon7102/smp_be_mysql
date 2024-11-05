@@ -131,7 +131,6 @@
 
 
 
-
 const express = require('express');
 const multer = require('multer');
 const fetch = require('node-fetch');
@@ -185,13 +184,46 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         // Log the access token (be careful with logging sensitive information)
         console.log('Access Token:', accessToken);
 
-        // Proceed with the rest of your logic...
+        // Step 2: Upload the image and caption to Instagram
+        const formData = new FormData();
+        formData.append('image', image.buffer, image.originalname);
+        formData.append('caption', caption);
+        formData.append('access_token', accessToken);
+
+        const postResponse = await fetch('https://graph.instagram.com/v12.0/me/media', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const postResult = await postResponse.json();
+
+        if (postResult.id) {
+            // Step 3: Publish the media
+            const publishResponse = await fetch(`https://graph.instagram.com/v12.0/me/media_publish`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    creation_id: postResult.id,
+                    access_token: accessToken,
+                }),
+            });
+
+            const publishResult = await publishResponse.json();
+
+            if (publishResult.id) {
+                res.json({ success: true, message: 'Post created successfully', postId: publishResult.id });
+            } else {
+                res.status(500).json({ success: false, message: 'Failed to publish post', error: publishResult });
+            }
+        } else {
+            res.status(500).json({ success: false, message: 'Failed to create media object', error: postResult });
+        }
     } catch (error) {
         console.error('Error:', error);
         res.status(500).json({ success: false, message: 'Internal server error', error });
     }
 });
-
-
 
 module.exports = router;
