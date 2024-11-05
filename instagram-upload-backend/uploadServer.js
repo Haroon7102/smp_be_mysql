@@ -245,6 +245,8 @@ const upload = multer({ storage: storage });
 // Instagram OAuth client credentials
 const clientId = '1199616704485910'; // Replace with your Instagram App Client ID
 const clientSecret = '35b13ad41ab9c6560e0f6710bd54a033'; // Replace with your Instagram App Client Secret
+const redirectUri = 'https://smpfe.netlify.app/dashboard';
+
 // In-memory store for access token and user ID (for demonstration purposes)
 let instagramAccessToken = null; // Store access token
 let instagramUserId = null; // Store user ID (make sure this is available in the response)
@@ -253,19 +255,15 @@ let instagramUserId = null; // Store user ID (make sure this is available in the
 router.post('/token', async (req, res) => {
     console.log('Received request on /token endpoint');
 
-    const { code, redirect_uri } = req.body;
+    const { code } = req.body;
+    console.log('Code received:', { code });
 
     // Check if either 'code' or 'redirect_uri' is missing and respond accordingly
-    if (!code && !redirect_uri) {
-        console.log('Missing both code and redirect_uri');
-        return res.status(400).json({ success: false, message: 'Code and redirect_uri missing' });
-    } else if (!code) {
-        console.log('Missing code');
-        return res.status(400).json({ success: false, message: 'Code is missing' });
-    } else if (!redirect_uri) {
-        console.log('Missing redirect_uri');
-        return res.status(400).json({ success: false, message: 'Redirect URI is missing' });
+    if (!code) {
+        console.log('Missing code ');
+        return res.status(400).json({ success: false, message: 'Code missing' });
     }
+
 
     console.log('Code and redirect_uri received:', { code, redirect_uri });
 
@@ -276,7 +274,7 @@ router.post('/token', async (req, res) => {
                 client_id: clientId,
                 client_secret: clientSecret,
                 grant_type: 'authorization_code',
-                redirect_uri,
+                redirect_uri: redirectUri,
                 code,
             }),
             {
