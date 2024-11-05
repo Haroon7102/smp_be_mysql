@@ -231,22 +231,24 @@
 
 
 
-
-/// instagramRoutes.js
+// instagramRoutes.js
 const express = require('express');
 const axios = require('axios');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' }); // Set up file storage
 
 const router = express.Router();
 
+// Multer configuration to store the file in memory
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 // Instagram OAuth client credentials
-const clientId = '1199616704485910'; // Replace with your Instagram App Client ID
-const clientSecret = '35b13ad41ab9c6560e0f6710bd54a033'; // Replace with your Instagram App Client Secret
+const clientId = 'YOUR_CLIENT_ID'; // Replace with your Instagram App Client ID
+const clientSecret = 'YOUR_CLIENT_SECRET'; // Replace with your Instagram App Client Secret
 
 // In-memory store for access token and user ID (for demonstration purposes)
 let instagramAccessToken = null; // Store access token
-let instagramUserId = null; // Store user ID
+let instagramUserId = null; // Store user ID (make sure this is available in the response)
 
 // Handle the code exchange for access token
 router.post('/token', async (req, res) => {
@@ -278,27 +280,27 @@ router.post('/token', async (req, res) => {
 // Handle posting to Instagram
 router.post('/upload', upload.single('image'), async (req, res) => {
     const { caption } = req.body;
-    const image = req.file; // Get the uploaded file
 
-    if (!caption || !image) {
+    if (!caption || !req.file) {
         return res.status(400).json({ success: false, message: 'Caption or image missing' });
     }
 
-    try {
-        // Here, you should upload the image to a public URL
-        // This is a placeholder for where you would upload your image
-        const imageUrl = `URL_OF_UPLOADED_IMAGE`; // You need to replace this with the URL where the image will be accessible
+    // Convert the image buffer to base64
+    const imageBuffer = req.file.buffer;
+    const imageBase64 = imageBuffer.toString('base64');
+    const imageUrl = `data:${req.file.mimetype};base64,${imageBase64}`;
 
+    try {
         // Post to Instagram using the Instagram Graph API
-        const response = await axios.post(`https://graph.facebook.com/v12.0/${instagramUserId}/media`, {
+        const mediaResponse = await axios.post(`https://graph.facebook.com/v12.0/${instagramUserId}/media`, {
             caption,
-            image_url: imageUrl, // Make sure this points to the accessible image URL
+            image_url: imageUrl, // Use the base64 encoded image URL
             access_token: instagramAccessToken, // Use the stored access token
         });
 
         // Publish the media object
         const creationResponse = await axios.post(`https://graph.facebook.com/v12.0/${instagramUserId}/media_publish`, {
-            creation_id: response.data.id, // Use the media ID from the previous response
+            creation_id: mediaResponse.data.id, // Use the media ID from the previous response
             access_token: instagramAccessToken,
         });
 
@@ -310,3 +312,4 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 });
 
 module.exports = router;
+
