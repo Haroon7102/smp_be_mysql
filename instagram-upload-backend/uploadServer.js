@@ -253,9 +253,9 @@ let instagramUserId = null; // Store user ID (make sure this is available in the
 router.post('/token', async (req, res) => {
     console.log('Received request on /token endpoint');
 
-    const { code } = req.body;
+    const { code, redirect_uri } = req.body;
 
-    if (!code) {
+    if (!code || !redirect_uri) {
         console.log('Missing code or redirect_uri');
         return res.status(400).json({ success: false, message: 'Code or redirect_uri missing' });
     }
@@ -269,7 +269,7 @@ router.post('/token', async (req, res) => {
                 client_id: clientId,
                 client_secret: clientSecret,
                 grant_type: 'authorization_code',
-                redirect_uri: 'https://smpfe.netlify.app/dashboard',
+                redirect_uri,
                 code,
             }),
             {
