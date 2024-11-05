@@ -170,13 +170,26 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
         const accessToken = tokenData.access_token;
 
-        // Step 2: Upload image with caption to Instagram
+        // Step 2: Retrieve User ID
+        const userResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`);
+        const userData = await userResponse.json();
+
+        if (!userData.id) {
+            return res.status(500).json({ success: false, message: 'Failed to obtain user ID', error: userData });
+        }
+
+        const userId = userData.id; // Now you have the user ID
+
+        // Optional: Store the User ID in your database for future reference
+        // await saveUserIdToDatabase(userId, accessToken); // Implement this function based on your needs
+
+        // Step 3: Upload image with caption to Instagram
         const formData = new FormData();
         formData.append('caption', caption);
         formData.append('image', image.buffer, image.originalname);
         formData.append('access_token', accessToken);
 
-        const postResponse = await fetch('https://graph.instagram.com/v12.0/USER_ID/media', {
+        const postResponse = await fetch(`https://graph.instagram.com/v12.0/${userId}/media`, {
             method: 'POST',
             body: formData
         });
@@ -193,5 +206,6 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error', error });
     }
 });
+
 
 module.exports = router;
