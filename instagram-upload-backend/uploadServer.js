@@ -245,7 +245,6 @@ const upload = multer({ storage: storage });
 // Instagram OAuth client credentials
 const clientId = '1199616704485910'; // Replace with your Instagram App Client ID
 const clientSecret = '35b13ad41ab9c6560e0f6710bd54a033'; // Replace with your Instagram App Client Secret
-
 // In-memory store for access token and user ID (for demonstration purposes)
 let instagramAccessToken = null; // Store access token
 let instagramUserId = null; // Store user ID (make sure this is available in the response)
@@ -254,21 +253,21 @@ let instagramUserId = null; // Store user ID (make sure this is available in the
 router.post('/token', async (req, res) => {
     console.log('Received request on /token endpoint');
 
-    const { code, redirect_uri } = req.body;
+    const { code } = req.body;
 
-    if (!code || !redirect_uri) {
+    if (!code) {
         console.log('Missing code or redirect_uri');
         return res.status(400).json({ success: false, message: 'Code or redirect_uri missing' });
     }
 
-    console.log('Code and redirect_uri received:', { code, redirect_uri });
+    console.log('Code and redirect_uri received:', { code });
 
     try {
         const tokenResponse = await axios.post('https://api.instagram.com/oauth/access_token', {
             client_id: clientId,
             client_secret: clientSecret,
             grant_type: 'authorization_code',
-            redirect_uri,
+            redirect_uri: 'https://smpfe.netlify.app/dashboard',
             code,
         });
 
