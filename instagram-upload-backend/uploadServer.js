@@ -252,11 +252,16 @@ let instagramUserId = null; // Store user ID (make sure this is available in the
 
 // Handle the code exchange for access token
 router.post('/token', async (req, res) => {
+    console.log('Received request on /token endpoint');
+
     const { code, redirect_uri } = req.body;
 
     if (!code || !redirect_uri) {
+        console.log('Missing code or redirect_uri');
         return res.status(400).json({ success: false, message: 'Code or redirect_uri missing' });
     }
+
+    console.log('Code and redirect_uri received:', { code, redirect_uri });
 
     try {
         const tokenResponse = await axios.post('https://api.instagram.com/oauth/access_token', {
@@ -267,8 +272,10 @@ router.post('/token', async (req, res) => {
             code,
         });
 
-        instagramAccessToken = tokenResponse.data.access_token; // Store access token
-        instagramUserId = tokenResponse.data.user_id; // Store user ID (make sure this is available in the response)
+        instagramAccessToken = tokenResponse.data.access_token;
+        instagramUserId = tokenResponse.data.user_id;
+
+        console.log('Access token generated:', instagramAccessToken);
 
         return res.status(200).json({ success: true, accessToken: instagramAccessToken });
     } catch (error) {
