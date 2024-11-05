@@ -255,12 +255,19 @@ router.post('/token', async (req, res) => {
 
     const { code, redirect_uri } = req.body;
 
-    if (!code || !redirect_uri) {
-        console.log('Missing code or redirect_uri');
-        return res.status(400).json({ success: false, message: 'Code or redirect_uri missing' });
+    // Check if either 'code' or 'redirect_uri' is missing and respond accordingly
+    if (!code && !redirect_uri) {
+        console.log('Missing both code and redirect_uri');
+        return res.status(400).json({ success: false, message: 'Code and redirect_uri missing' });
+    } else if (!code) {
+        console.log('Missing code');
+        return res.status(400).json({ success: false, message: 'Code is missing' });
+    } else if (!redirect_uri) {
+        console.log('Missing redirect_uri');
+        return res.status(400).json({ success: false, message: 'Redirect URI is missing' });
     }
 
-    console.log('Code and redirect_uri received:', { code });
+    console.log('Code and redirect_uri received:', { code, redirect_uri });
 
     try {
         const tokenResponse = await axios.post(
@@ -288,6 +295,7 @@ router.post('/token', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Error exchanging code for token' });
     }
 });
+
 
 // Handle posting to Instagram
 router.post('/upload', upload.single('image'), async (req, res) => {
