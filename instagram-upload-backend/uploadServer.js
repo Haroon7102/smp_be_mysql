@@ -263,13 +263,19 @@ router.post('/token', async (req, res) => {
     console.log('Code and redirect_uri received:', { code });
 
     try {
-        const tokenResponse = await axios.post('https://api.instagram.com/oauth/access_token', {
-            client_id: clientId,
-            client_secret: clientSecret,
-            grant_type: 'authorization_code',
-            redirect_uri: 'https://smpfe.netlify.app/dashboard',
-            code,
-        });
+        const tokenResponse = await axios.post(
+            'https://api.instagram.com/oauth/access_token',
+            qs.stringify({
+                client_id: clientId,
+                client_secret: clientSecret,
+                grant_type: 'authorization_code',
+                redirect_uri: 'https://smpfe.netlify.app/dashboard',
+                code,
+            }),
+            {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            }
+        );
 
         instagramAccessToken = tokenResponse.data.access_token;
         instagramUserId = tokenResponse.data.user_id;
