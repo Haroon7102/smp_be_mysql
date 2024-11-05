@@ -140,7 +140,7 @@ const FormData = require('form-data');
 const router = express.Router();
 const upload = multer(); // Use multer to handle file uploads
 
-router.post('/instagram-upload/upload', upload.single('image'), async (req, res) => {
+router.post('/upload', upload.single('image'), async (req, res) => {
     const { caption, code } = req.body;
     const image = req.file;
 
