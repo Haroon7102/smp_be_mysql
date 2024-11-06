@@ -248,6 +248,105 @@
 
 // module.exports = router;
 
+// const express = require('express');
+// const fetch = require('node-fetch');
+// const multer = require('multer');
+// const FormData = require('form-data');
+// const cors = require('cors');
+// require('dotenv').config();
+
+// const router = express.Router();
+// const upload = multer({ storage: multer.memoryStorage() });
+
+// // CORS setup
+// router.use(cors({
+//     origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
+//     methods: ['POST'],
+//     credentials: true
+// }));
+
+// // Helper function to handle Facebook API requests
+// const handleFacebookRequest = async (url, options) => {
+//     const response = await fetch(url, options);
+//     const result = await response.json();
+//     if (!response.ok) {
+//         throw new Error(result.error?.message || 'Failed Facebook API request');
+//     }
+//     return result;
+// };
+
+// // Function to upload files (image or video) to Facebook
+// const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
+//     const formData = new FormData();
+//     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+//     if (caption && isVideo) formData.append('caption', caption); // Caption for videos only
+//     formData.append('access_token', accessToken);
+
+//     const url = isVideo
+//         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
+//         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+
+//     const response = await fetch(url, {
+//         method: 'POST',
+//         body: formData,
+//         headers: formData.getHeaders(),
+//     });
+
+//     const result = await response.json();
+//     if (!response.ok) {
+//         throw new Error(`Upload failed: ${result.error.message}`);
+//     }
+
+//     return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+// };
+
+// // Route to upload files and post to Facebook
+// router.post('/upload', upload.array('files', 10), async (req, res) => {
+//     const { accessToken, pageId, caption } = req.body;
+//     const files = req.files;
+
+//     if (!accessToken || !pageId) {
+//         return res.status(400).json({ error: 'Access token and page ID are required.' });
+//     }
+
+//     try {
+//         let mediaResults = [];
+
+//         if (files && files.length > 0) {
+//             // Process files (video or image)
+//             mediaResults = await Promise.all(
+//                 files.map(file => {
+//                     const isVideo = file.mimetype.startsWith('video/');
+//                     return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
+//                 })
+//             );
+//         }
+
+//         // Prepare post data, adding media if available
+//         const postData = {
+//             access_token: accessToken,
+//             attached_media: JSON.stringify(mediaResults.filter(result => result).map(result => result.media_fbid || result.video_id))
+//         };
+//         if (caption) postData.message = caption;
+
+//         // Send the final post request
+//         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+//         const postResponse = await handleFacebookRequest(postUrl, {
+//             method: 'POST',
+//             body: new URLSearchParams(postData),
+//         });
+
+//         return res.json({ success: true, postId: postResponse.id });
+//     } catch (error) {
+//         console.error('Error during upload:', error);
+//         res.status(500).json({ error: 'Upload failed', details: error.message });
+//     }
+// });
+
+// module.exports = router;
+
+
+
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
@@ -258,14 +357,12 @@ require('dotenv').config();
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// CORS setup
 router.use(cors({
-    origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
+    origin: 'https://smpfe.netlify.app',
     methods: ['POST'],
     credentials: true
 }));
 
-// Helper function to handle Facebook API requests
 const handleFacebookRequest = async (url, options) => {
     const response = await fetch(url, options);
     const result = await response.json();
@@ -275,11 +372,10 @@ const handleFacebookRequest = async (url, options) => {
     return result;
 };
 
-// Function to upload files (image or video) to Facebook
 const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    if (caption && isVideo) formData.append('caption', caption); // Caption for videos only
+    if (caption && isVideo) formData.append('caption', caption);
     formData.append('access_token', accessToken);
 
     const url = isVideo
@@ -300,7 +396,6 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     return isVideo ? { video_id: result.id } : { media_fbid: result.id };
 };
 
-// Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
@@ -310,33 +405,26 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        let mediaResults = [];
+        const mediaResults = await Promise.all(
+            files.map(file => {
+                const isVideo = file.mimetype.startsWith('video/');
+                return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
+            })
+        );
 
-        if (files && files.length > 0) {
-            // Process files (video or image)
-            mediaResults = await Promise.all(
-                files.map(file => {
-                    const isVideo = file.mimetype.startsWith('video/');
-                    return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
-                })
-            );
-        }
-
-        // Prepare post data, adding media if available
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(mediaResults.filter(result => result).map(result => result.media_fbid || result.video_id))
+            attached_media: JSON.stringify(mediaResults.map(result => result.media_fbid || result.video_id))
         };
         if (caption) postData.message = caption;
 
-        // Send the final post request
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
         const postResponse = await handleFacebookRequest(postUrl, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
 
-        return res.json({ success: true, postId: postResponse.id });
+        res.json({ success: true, postId: postResponse.id });
     } catch (error) {
         console.error('Error during upload:', error);
         res.status(500).json({ error: 'Upload failed', details: error.message });
@@ -344,3 +432,4 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
