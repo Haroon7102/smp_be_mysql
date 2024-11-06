@@ -4,8 +4,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const passport = require('./auth/passport');
 const session = require('express-session');
-const FacebookStrategy = require('passport-facebook').Strategy;
-const InstagramStrategy = require('passport-instagram').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { sequelize } = require('./models');
 const authRoutes = require('./auth/authRoutes');
@@ -15,10 +13,12 @@ const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
 // const facebookRoutes = require('./auth/facebookRoutes');
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
-const instagramuploadrouter = require('./instagram-upload-backend/uploadServer.js')
+
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
 
 // Middleware setup
 // app.use(cors({
@@ -44,7 +44,6 @@ app.use(passport.session());
 
 // Use the upload router
 app.use('/facebook-upload', facebookUploadRouter);
-app.use('/instagram-upload', instagramuploadrouter);
 
 // Public Route
 app.get('/', (req, res) => {
@@ -118,15 +117,7 @@ passport.use(new GoogleStrategy({
 ));
 
 
-// Instagram authentication routes
-app.get('/auth/instagram', passport.authenticate('instagram'));
 
-app.get('/auth/instagram/callback',
-    passport.authenticate('instagram', { failureRedirect: '/' }),
-    (req, res) => {
-        res.redirect('/'); // Redirect to your front-end route
-    }
-);
 
 // Google authentication routes
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
