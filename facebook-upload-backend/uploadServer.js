@@ -152,6 +152,14 @@ const postMessageToFacebook = async (pageId, accessToken, message) => {
         throw error;
     }
 };
+const fetchWithTimeout = (url, options, timeout = 600000) => { // Set timeout to 10 minutes
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out')), timeout)
+        ),
+    ]);
+};
 
 // Function to upload a video to Facebook
 const uploadVideoToFacebook = async (pageId, accessToken, file) => {
@@ -159,7 +167,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, file) => {
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('published', 'false');  // Unpublished to allow attachment to a post later
 
-    const videoResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
+    const videoResponse = await fetchWithTimeout(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
         method: 'POST',
         body: formData,
         headers: formData.getHeaders(),
