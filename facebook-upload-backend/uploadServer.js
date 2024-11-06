@@ -149,10 +149,10 @@ const postMessageToFacebook = async (pageId, accessToken, message) => {
 };
 
 // Function to upload a video to Facebook
-const uploadVideoToFacebook = async (pageId, accessToken, file, caption) => {
+const uploadVideoToFacebook = async (pageId, accessToken, file, message) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    formData.append('caption', caption || ''); // Optional caption
+    formData.append('caption', message); // Optional caption
     formData.append('access_token', accessToken);
 
     try {
