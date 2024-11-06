@@ -25,8 +25,9 @@ const PORT = process.env.PORT || 5000;
 //     origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
 // }));
 app.use(cors({
-    origin: 'https://smpfe.netlify.app', // Frontend URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: 'https://smpfe.netlify.app', // Ensure this matches your frontend URL
+    methods: ['POST', 'GET', 'OPTIONS'], // List all methods you use
+    allowedHeaders: ['Content-Type', 'Authorization'], // Add any custom headers you use
     credentials: true
 }));
 
