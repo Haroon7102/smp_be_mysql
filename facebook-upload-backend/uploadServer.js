@@ -121,12 +121,15 @@ require('dotenv').config();
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// CORS setup
 router.use(cors({
     origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
-    methods: ['POST'],
-    credentials: true
+    methods: ['POST', 'GET', 'OPTIONS'], // Allow methods you plan to use
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allow necessary headers
+    credentials: true // Allow credentials if necessary
 }));
+
+// Additional CORS middleware to handle preflight requests
+router.options('*', cors());
 
 // Function to post a message to Facebook
 const postMessageToFacebook = async (pageId, accessToken, message) => {
