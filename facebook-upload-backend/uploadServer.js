@@ -188,7 +188,12 @@ const uploadVideoToFacebook = async (pageId, accessToken, file) => {
 };
 
 // Route to upload files and post to Facebook
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', cors({
+    origin: 'https://smpfe.netlify.app',
+    methods: ['POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}), upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
 
