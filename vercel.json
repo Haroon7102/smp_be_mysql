@@ -4,13 +4,12 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
-    }
-  ],
-  "functions": {
-    "server.js": {
+    },
+    {
       "maxDuration": 60000
     }
-  },
+  ],
+ 
   "routes": [
     {
       "src": "/(.*)",
