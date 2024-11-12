@@ -463,7 +463,8 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-    if (caption && isVideo) formData.append('caption', caption);
+    // if (caption && isVideo) formData.append('caption', caption);
+    if (caption) formData.append('caption', caption);
 
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
