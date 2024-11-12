@@ -477,6 +477,8 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
 
     const result = await response.json();
     if (!response.ok) {
+        console.error('Error uploading to Facebook:', result.error); // log detailed error
+
         throw new Error(`Upload failed: ${result.error.message}`);
     }
 
@@ -494,6 +496,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
+        console.log('Uploading files:', files);  // Log the files to make sure they are being received
+
         const mediaResults = await Promise.all(
             files.map(file => {
                 const isVideo = file.mimetype.startsWith('video/');
