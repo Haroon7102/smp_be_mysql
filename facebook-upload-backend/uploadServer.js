@@ -448,7 +448,7 @@ require('dotenv').config();
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+    limits: { fileSize: 1000 * 1024 * 1024 } // 50MB limit
 });
 
 router.use(cors({
@@ -462,7 +462,7 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
 
-    // For videos, use description for captions
+    // For videos, add description for captions
     if (isVideo && caption) {
         formData.append('description', caption);
     }
@@ -503,6 +503,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
+        // Separate video and image uploads to avoid conflicts
         const mediaResults = await Promise.all(
             files.map(file => {
                 const isVideo = file.mimetype.startsWith('video/');
@@ -543,3 +544,4 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
