@@ -449,8 +449,7 @@ require('dotenv').config();
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 } // 20MB limit
-
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
 router.use(cors({
@@ -463,10 +462,10 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-    // if (caption && isVideo) formData.append('caption', caption);
     if (caption) {
         formData.append('caption', caption);
     }
+
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
@@ -489,17 +488,18 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
         return isVideo ? { video_id: result.id } : { media_fbid: result.id };
     } catch (error) {
         console.error('Error during upload:', error);
-        res.status(500).json({ error: 'Upload failed', details: error.message });
-        throw error;
+        throw error;  // Rethrow error to be caught in the main route handler
     }
 };
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
+
     console.log('Received files:', files);
     console.log('Access Token:', accessToken);
     console.log('Page ID:', pageId);
+
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
@@ -520,6 +520,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 media_fbid: result.media_fbid || result.video_id
             })))
         };
+
         if (caption) postData.message = caption;
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
