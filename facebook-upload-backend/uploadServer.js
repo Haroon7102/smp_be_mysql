@@ -455,24 +455,12 @@ router.use(cors({
     credentials: true
 }));
 
-// Helper function for Facebook API requests with error handling
-const handleFacebookRequest = async (url, options) => {
-    const response = await fetch(url, options);
-    const result = await response.json();
-    if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed Facebook API request');
-    }
-    return result;
-};
-
-// Uploads a single file (image or video) to Facebook
 const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    if (caption && isVideo) formData.append('caption', caption); // Only for videos
     formData.append('access_token', accessToken);
+    if (caption && isVideo) formData.append('caption', caption);
 
-    // Choose the correct URL based on file type
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
@@ -491,7 +479,6 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     return isVideo ? { video_id: result.id } : { media_fbid: result.id };
 };
 
-// Route for uploading posts with images, videos, and/or captions
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
@@ -501,42 +488,37 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Step 1: Upload media files (if any) and collect media IDs
-        let mediaResults = [];
-        if (files && files.length > 0) {
-            mediaResults = await Promise.all(
-                files.map(file => {
-                    const isVideo = file.mimetype.startsWith('video/');
-                    return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
-                })
-            );
-        }
+        const mediaResults = await Promise.all(
+            files.map(file => {
+                const isVideo = file.mimetype.startsWith('video/');
+                return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
+            })
+        );
 
-        // Step 2: Prepare data for creating the post
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(mediaResults.map(result => result.media_fbid || result.video_id))
+            attached_media: JSON.stringify(mediaResults.map(result => ({
+                media_fbid: result.media_fbid || result.video_id
+            })))
         };
         if (caption) postData.message = caption;
 
-        // Step 3: Post to Facebook feed
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
-        const postResponse = await handleFacebookRequest(postUrl, {
+        const postResponse = await fetch(postUrl, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
 
-        // Success response
-        res.json({ success: true, postId: postResponse.id });
+        const postResult = await postResponse.json();
+
+        if (!postResponse.ok) {
+            throw new Error(postResult.error.message || 'Failed to post to Facebook feed');
+        }
+
+        res.json({ success: true, postId: postResult.id });
     } catch (error) {
         console.error('Error during upload:', error);
-
-        // Error handling response
-        if (error.message.includes('file size')) {
-            res.status(413).json({ error: 'File too large for upload. Please compress and try again.' });
-        } else {
-            res.status(500).json({ error: 'Upload failed', details: error.message });
-        }
+        res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
 
