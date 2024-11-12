@@ -437,7 +437,6 @@
 
 
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
@@ -461,7 +460,6 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-    formData.append('caption', caption); // Add caption to the form data
 
     const url = isVideo ? `https://graph-video.facebook.com/v21.0/${pageId}/videos` : `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
@@ -480,14 +478,14 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
             throw new Error(`Upload failed: ${result.error.message}`);
         }
 
-        return result; // Return the complete response
+        return result;
     } catch (error) {
         console.error('Error during upload:', error);
         throw error;
     }
 };
 
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', upload.array('files', 2), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
 
@@ -495,28 +493,35 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
+    if (files.length !== 2) {
+        return res.status(400).json({ error: 'Please upload exactly one image and one video.' });
+    }
+
     try {
-        const mediaData = await Promise.all(
-            files.map(async (file) => {
-                const isVideo = file.mimetype.startsWith('video/');
-                const mediaResult = await uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
-                return {
-                    media_fbid: isVideo ? mediaResult.id : mediaResult.id, // Extract media ID based on type
-                    type: isVideo ? 'video' : 'photo', // Specify media type
-                };
-            })
-        );
+        const [image, video] = files;
+
+        const imageResult = await uploadFileToFacebook(pageId, accessToken, image, false);
+        const videoResult = await uploadFileToFacebook(pageId, accessToken, video, true);
 
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(mediaData),
-            message: caption, // Include caption
+            message: caption,
+            attached_media: JSON.stringify([
+                {
+                    media_fbid: imageResult.id,
+                    type: 'photo'
+                },
+                {
+                    video_id: videoResult.id,
+                    type: 'video'
+                }
+            ])
         };
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
         const postResponse = await fetch(postUrl, {
             method: 'POST',
-            body: JSON.stringify(postData), // Use JSON for post data
+            body: JSON.stringify(postData),
         });
 
         const postResult = await postResponse.json();
