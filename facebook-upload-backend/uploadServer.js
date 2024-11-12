@@ -462,8 +462,10 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-    if (caption) {
-        formData.append('caption', caption);
+
+    // Add caption only if it’s a video
+    if (isVideo && caption) {
+        formData.append('description', caption);  // For videos, use 'description' for captions
     }
 
     const url = isVideo
@@ -481,14 +483,14 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
         console.log('Facebook API Response:', result);
 
         if (!response.ok) {
-            console.error('Error uploading to Facebook:', result.error); // log detailed error
+            console.error('Error uploading to Facebook:', result.error);
             throw new Error(`Upload failed: ${result.error.message}`);
         }
 
         return isVideo ? { video_id: result.id } : { media_fbid: result.id };
     } catch (error) {
         console.error('Error during upload:', error);
-        throw error;  // Rethrow error to be caught in the main route handler
+        throw error;
     }
 };
 
@@ -496,17 +498,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
 
-    console.log('Received files:', files);
-    console.log('Access Token:', accessToken);
-    console.log('Page ID:', pageId);
-
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     try {
-        console.log('Uploading files:', files);  // Log the files to make sure they are being received
-
         const mediaResults = await Promise.all(
             files.map(file => {
                 const isVideo = file.mimetype.startsWith('video/');
@@ -514,6 +510,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             })
         );
 
+        // Prepare the data for the final post with attached media
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(mediaResults.map(result => ({
@@ -521,6 +518,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             })))
         };
 
+        // Add a separate caption for the overall post if provided
         if (caption) postData.message = caption;
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
