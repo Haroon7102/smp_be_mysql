@@ -461,13 +461,9 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-    if (caption && !isVideo) {
-        formData.append('caption', caption);
-    }
+    formData.append('caption', caption); // Add caption to the form data
 
-    const url = isVideo
-        ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+    const url = isVideo ? `https://graph-video.facebook.com/v21.0/${pageId}/videos` : `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
     try {
         const response = await fetch(url, {
@@ -475,48 +471,52 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
             body: formData,
             headers: formData.getHeaders(),
         });
+
         const result = await response.json();
+        console.log('Facebook API Response:', result);
 
         if (!response.ok) {
-            throw new Error(result.error.message);
+            console.error('Error uploading to Facebook:', result.error);
+            throw new Error(`Upload failed: ${result.error.message}`);
         }
 
-        return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+        return result; // Return the complete response
     } catch (error) {
         console.error('Error during upload:', error);
         throw error;
     }
 };
 
-router.post('/upload', upload.array('files', 2), async (req, res) => {
+router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
 
-    if (!accessToken || !pageId || files.length < 2) {
-        return res.status(400).json({ error: 'Access token, page ID, and two files are required.' });
+    if (!accessToken || !pageId) {
+        return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     try {
-        const mediaResults = await Promise.all(
-            files.map(file => {
+        const mediaData = await Promise.all(
+            files.map(async (file) => {
                 const isVideo = file.mimetype.startsWith('video/');
-                return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
+                const mediaResult = await uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
+                return {
+                    media_fbid: isVideo ? mediaResult.id : mediaResult.id, // Extract media ID based on type
+                    type: isVideo ? 'video' : 'photo', // Specify media type
+                };
             })
         );
 
         const postData = {
             access_token: accessToken,
-            message: caption,
-            attached_media: JSON.stringify(
-                mediaResults.map(result => ({
-                    media_fbid: result.media_fbid || result.video_id
-                }))
-            )
+            attached_media: JSON.stringify(mediaData),
+            message: caption, // Include caption
         };
 
-        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+        const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+        const postResponse = await fetch(postUrl, {
             method: 'POST',
-            body: new URLSearchParams(postData),
+            body: JSON.stringify(postData), // Use JSON for post data
         });
 
         const postResult = await postResponse.json();
