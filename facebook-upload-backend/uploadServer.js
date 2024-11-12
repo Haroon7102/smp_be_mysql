@@ -447,7 +447,11 @@ const cors = require('cors');
 require('dotenv').config();
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+
+});
 
 router.use(cors({
     origin: 'https://smpfe.netlify.app',
@@ -482,7 +486,9 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
-
+    console.log('Received files:', files);
+    console.log('Access Token:', accessToken);
+    console.log('Page ID:', pageId);
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
