@@ -461,10 +461,8 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
-
-    // For videos, add description for captions
-    if (isVideo && caption) {
-        formData.append('description', caption);
+    if (caption && !isVideo) {
+        formData.append('caption', caption);
     }
 
     const url = isVideo
@@ -477,16 +475,12 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
             body: formData,
             headers: formData.getHeaders(),
         });
-
         const result = await response.json();
-        console.log('Facebook API Response:', result);
 
         if (!response.ok) {
-            console.error('Error uploading to Facebook:', result.error);
-            throw new Error(`Upload failed: ${result.error.message}`);
+            throw new Error(result.error.message);
         }
 
-        // Return media_fbid for photos and video_id for videos
         return isVideo ? { video_id: result.id } : { media_fbid: result.id };
     } catch (error) {
         console.error('Error during upload:', error);
@@ -494,16 +488,15 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     }
 };
 
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', upload.array('files', 2), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
 
-    if (!accessToken || !pageId) {
-        return res.status(400).json({ error: 'Access token and page ID are required.' });
+    if (!accessToken || !pageId || files.length < 2) {
+        return res.status(400).json({ error: 'Access token, page ID, and two files are required.' });
     }
 
     try {
-        // Separate video and image uploads to avoid conflicts
         const mediaResults = await Promise.all(
             files.map(file => {
                 const isVideo = file.mimetype.startsWith('video/');
@@ -511,21 +504,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             })
         );
 
-        // Construct attached_media with media_fbid and video_id
-        const attachedMedia = mediaResults.map(result => ({
-            media_fbid: result.media_fbid || result.video_id
-        }));
-
-        // Prepare the data for the final post with all media attached
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(attachedMedia),
+            message: caption,
+            attached_media: JSON.stringify(
+                mediaResults.map(result => ({
+                    media_fbid: result.media_fbid || result.video_id
+                }))
+            )
         };
 
-        if (caption) postData.message = caption;
-
-        const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
-        const postResponse = await fetch(postUrl, {
+        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
@@ -544,4 +533,3 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
-
