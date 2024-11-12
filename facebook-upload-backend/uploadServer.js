@@ -438,7 +438,6 @@
 
 
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
@@ -463,9 +462,9 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
 
-    // Add caption only if it’s a video
+    // For videos, use description for captions
     if (isVideo && caption) {
-        formData.append('description', caption);  // For videos, use 'description' for captions
+        formData.append('description', caption);
     }
 
     const url = isVideo
@@ -487,6 +486,7 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
             throw new Error(`Upload failed: ${result.error.message}`);
         }
 
+        // Return media_fbid for photos and video_id for videos
         return isVideo ? { video_id: result.id } : { media_fbid: result.id };
     } catch (error) {
         console.error('Error during upload:', error);
@@ -510,15 +510,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             })
         );
 
-        // Prepare the data for the final post with attached media
+        // Construct attached_media with media_fbid and video_id
+        const attachedMedia = mediaResults.map(result => ({
+            media_fbid: result.media_fbid || result.video_id
+        }));
+
+        // Prepare the data for the final post with all media attached
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(mediaResults.map(result => ({
-                media_fbid: result.media_fbid || result.video_id
-            })))
+            attached_media: JSON.stringify(attachedMedia),
         };
 
-        // Add a separate caption for the overall post if provided
         if (caption) postData.message = caption;
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
