@@ -449,7 +449,7 @@ require('dotenv').config();
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+    limits: { fileSize: 50 * 1024 * 1024 } // 20MB limit
 
 });
 
@@ -464,26 +464,34 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
     // if (caption && isVideo) formData.append('caption', caption);
-    if (caption) formData.append('caption', caption);
-
+    if (caption) {
+        formData.append('caption', caption);
+    }
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        });
 
-    const result = await response.json();
-    if (!response.ok) {
-        console.error('Error uploading to Facebook:', result.error); // log detailed error
+        const result = await response.json();
+        console.log('Facebook API Response:', result);
 
-        throw new Error(`Upload failed: ${result.error.message}`);
+        if (!response.ok) {
+            console.error('Error uploading to Facebook:', result.error); // log detailed error
+            throw new Error(`Upload failed: ${result.error.message}`);
+        }
+
+        return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+    } catch (error) {
+        console.error('Error during upload:', error);
+        res.status(500).json({ error: 'Upload failed', details: error.message });
+        throw error;
     }
-
-    return isVideo ? { video_id: result.id } : { media_fbid: result.id };
 };
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
