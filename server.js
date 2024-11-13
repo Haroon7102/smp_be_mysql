@@ -18,7 +18,11 @@ const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+// Set a global timeout
+app.use((req, res, next) => {
+    req.setTimeout(2 * 60 * 1000); // 2 minutes
+    next();
+});
 
 // Middleware setup
 // app.use(cors({
