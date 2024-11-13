@@ -448,8 +448,8 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 } // Adjust as needed, here 100MB
 });
 
-app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '600mb' })); // Set to an appropriate size
+app.use(express.urlencoded({ limit: '600mb', extended: true }));
 app.use((req, res, next) => {
     res.setTimeout(300000, () => { // Set timeout to 5 minutes (in ms)
         console.log('Request timed out');
