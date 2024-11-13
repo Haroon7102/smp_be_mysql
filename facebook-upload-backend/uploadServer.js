@@ -435,18 +435,13 @@
 
 
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
 require('dotenv').config();
-const app = express();
 
-// Increase the payload limit for file uploads
-app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -459,6 +454,7 @@ router.use(cors({
     credentials: true
 }));
 
+// Function to upload a single file (either image or video) to Facebook
 const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
@@ -537,3 +533,4 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
