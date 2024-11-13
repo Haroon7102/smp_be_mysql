@@ -434,7 +434,6 @@
 // module.exports = router;
 
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
@@ -454,13 +453,45 @@ router.use(cors({
     credentials: true
 }));
 
+// Upload file to Facebook (image/video)
+const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
+    const formData = new FormData();
+    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+    formData.append('access_token', accessToken);
+
+    // Add description for videos if caption is provided
+    if (isVideo && caption) {
+        formData.append('description', caption);
+    }
+
+    const url = isVideo
+        ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
+        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: formData.getHeaders(),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error.message || 'Upload to Facebook failed');
+    }
+
+    // Return media_fbid for images or video_id for videos
+    return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+};
+
+// Function to handle uploading videos and images in sequence
 const uploadFilesSequentially = async (files, pageId, accessToken, caption) => {
     const videoFiles = files.filter(file => file.mimetype.startsWith('video/'));
     const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
 
     let videoResults = [];
     for (let videoFile of videoFiles) {
-        // Upload the video first (sequentially)
+        // Upload each video one by one
         const videoResult = await uploadFileToFacebook(pageId, accessToken, videoFile, true, caption);
         videoResults.push(videoResult);
     }
@@ -469,13 +500,10 @@ const uploadFilesSequentially = async (files, pageId, accessToken, caption) => {
         imageFiles.map(imageFile => uploadFileToFacebook(pageId, accessToken, imageFile, false))
     );
 
-    // Prepare the attached media for the post
-    const attachedMedia = imageResults.map(result => ({ media_fbid: result.media_fbid }));
-    videoResults.forEach(result => attachedMedia.push({ media_fbid: result.video_id }));
-
-    return attachedMedia;
+    return { videoResults, imageResults };
 };
 
+// Route for uploading media
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption } = req.body;
     const files = req.files;
@@ -485,15 +513,25 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        const attachedMedia = await uploadFilesSequentially(files, pageId, accessToken, caption);
+        // Handle files upload sequentially
+        const { videoResults, imageResults } = await uploadFilesSequentially(files, pageId, accessToken, caption);
 
-        // Final post data
+        // Prepare the attached media for Facebook post
+        const attachedMedia = [];
+
+        // Add images to the post data
+        imageResults.forEach(result => attachedMedia.push({ media_fbid: result.media_fbid }));
+
+        // Add videos to the post data (one per post)
+        videoResults.forEach(result => attachedMedia.push({ media_fbid: result.video_id }));
+
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
         };
         if (caption) postData.message = caption;
 
+        // Create a post on Facebook feed with images and videos
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
         const postResponse = await fetch(postUrl, {
             method: 'POST',
@@ -512,7 +550,5 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
-
-
 
 module.exports = router;
