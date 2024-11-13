@@ -454,19 +454,20 @@ router.use(cors({
     credentials: true
 }));
 
-// Function to upload a single file (either image or video) to Facebook
+// Function to upload a single file to Facebook
 const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
 
+    // Add description for video caption, but do not publish immediately
     if (isVideo && caption) {
-        formData.append('description', caption);  // For video captions
+        formData.append('description', caption); // Video caption
     }
 
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`; // For images, publish=false
 
     const response = await fetch(url, {
         method: 'POST',
@@ -533,4 +534,5 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
 
