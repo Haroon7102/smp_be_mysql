@@ -454,20 +454,20 @@ router.use(cors({
     credentials: true
 }));
 
-// Function to upload a single file to Facebook
+// Function to upload a single media file (image or video) to Facebook
 const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
     const formData = new FormData();
     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     formData.append('access_token', accessToken);
 
-    // Add description for video caption, but do not publish immediately
+    // Add caption for video
     if (isVideo && caption) {
-        formData.append('description', caption); // Video caption
+        formData.append('description', caption);
     }
 
     const url = isVideo
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`; // For images, publish=false
+        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`; // Photos set as unpublished
 
     const response = await fetch(url, {
         method: 'POST',
@@ -481,7 +481,6 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
         throw new Error(result.error ? result.error.message : 'Upload failed');
     }
 
-    // Return media_fbid for photos and video_id for videos
     return isVideo ? { video_id: result.id } : { media_fbid: result.id };
 };
 
@@ -494,25 +493,38 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Upload files to Facebook and get their IDs
-        const mediaResults = await Promise.all(
-            files.map(file => {
-                const isVideo = file.mimetype.startsWith('video/');
-                return uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
-            })
-        );
+        // Separate files into images and videos
+        const images = files.filter(file => file.mimetype.startsWith('image/'));
+        const videos = files.filter(file => file.mimetype.startsWith('video/'));
 
-        // Prepare media IDs for the final post
-        const attachedMedia = mediaResults.map(result => ({
-            media_fbid: result.media_fbid || result.video_id
-        }));
+        let imageFbIds = [];
 
-        // Prepare post data with media and caption
+        // Upload images first as unpublished
+        if (images.length > 0) {
+            imageFbIds = await Promise.all(
+                images.map(image => uploadFileToFacebook(pageId, accessToken, image, false))
+            );
+        }
+
+        // Upload video with caption
+        let videoFbId = null;
+        if (videos.length > 0) {
+            const videoUpload = await uploadFileToFacebook(pageId, accessToken, videos[0], true, caption);
+            videoFbId = videoUpload.video_id;
+        }
+
+        // Prepare attached_media
+        const attachedMedia = [
+            ...imageFbIds.map(image => ({ media_fbid: image.media_fbid })),
+            ...(videoFbId ? [{ media_fbid: videoFbId }] : [])
+        ];
+
+        // Final post with attached media and caption
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
+            message: caption || ''
         };
-        if (caption) postData.message = caption;
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
         const postResponse = await fetch(postUrl, {
@@ -534,5 +546,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
 
 
