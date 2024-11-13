@@ -19,11 +19,8 @@ const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'
 const app = express();
 const PORT = process.env.PORT || 5000;
 // Set a global timeout
-app.use((req, res, next) => {
-    req.setTimeout(2 * 60 * 1000); // 2 minutes
-    next();
-});
-
+app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // Middleware setup
 // app.use(cors({
 //     origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
