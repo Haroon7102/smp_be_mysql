@@ -447,6 +447,11 @@ const app = express();
 app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
+app.use((req, res, next) => {
+    req.setTimeout(120000); // 2 minutes
+    next();
+});
+
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),

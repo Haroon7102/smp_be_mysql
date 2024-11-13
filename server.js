@@ -21,6 +21,10 @@ const PORT = process.env.PORT || 5000;
 // Set a global timeout
 app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use((req, res, next) => {
+    req.setTimeout(120000); // 2 minutes
+    next();
+});
 // Middleware setup
 // app.use(cors({
 //     origin: 'https://smpfe.netlify.app' // Allow requests only from this origin
