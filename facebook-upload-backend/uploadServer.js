@@ -454,34 +454,26 @@ router.use(cors({
     credentials: true
 }));
 
-const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
-    const formData = new FormData();
-    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    formData.append('access_token', accessToken);
+const uploadFilesSequentially = async (files, pageId, accessToken, caption) => {
+    const videoFiles = files.filter(file => file.mimetype.startsWith('video/'));
+    const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
 
-    // Add description for videos if caption is provided
-    if (isVideo && caption) {
-        formData.append('description', caption);
+    let videoResults = [];
+    for (let videoFile of videoFiles) {
+        // Upload the video first (sequentially)
+        const videoResult = await uploadFileToFacebook(pageId, accessToken, videoFile, true, caption);
+        videoResults.push(videoResult);
     }
 
-    const url = isVideo
-        ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+    const imageResults = await Promise.all(
+        imageFiles.map(imageFile => uploadFileToFacebook(pageId, accessToken, imageFile, false))
+    );
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
+    // Prepare the attached media for the post
+    const attachedMedia = imageResults.map(result => ({ media_fbid: result.media_fbid }));
+    videoResults.forEach(result => attachedMedia.push({ media_fbid: result.video_id }));
 
-    const result = await response.json();
-
-    if (!response.ok) {
-        throw new Error(result.error.message || 'Upload to Facebook failed');
-    }
-
-    // Return media_fbid for images or video_id for videos
-    return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+    return attachedMedia;
 };
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
@@ -493,26 +485,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Separate images and the first video
-        const videoFile = files.find(file => file.mimetype.startsWith('video/'));
-        const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
+        const attachedMedia = await uploadFilesSequentially(files, pageId, accessToken, caption);
 
-        // Upload the video first (Facebook API supports only one video per post)
-        let videoResult = null;
-        if (videoFile) {
-            videoResult = await uploadFileToFacebook(pageId, accessToken, videoFile, true, caption);
-        }
-
-        // Upload images and collect their media_fbid
-        const imageResults = await Promise.all(
-            imageFiles.map(imageFile => uploadFileToFacebook(pageId, accessToken, imageFile, false))
-        );
-
-        // Collect media_fbid of images and video_id of the single video (if any)
-        const attachedMedia = imageResults.map(result => ({ media_fbid: result.media_fbid }));
-        if (videoResult) attachedMedia.push({ media_fbid: videoResult.video_id });
-
-        // Prepare final post data with all media attached
+        // Final post data
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
@@ -537,6 +512,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 module.exports = router;
