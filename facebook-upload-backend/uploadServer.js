@@ -444,6 +444,12 @@ const FormData = require('form-data');
 const cors = require('cors');
 require('dotenv').config();
 
+const app = express();
+
+// Increase the payload limit for file uploads
+app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
 const router = express.Router();
 const upload = multer({
     storage: multer.memoryStorage(),
