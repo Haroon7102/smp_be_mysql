@@ -493,23 +493,30 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Step 1: Upload each file individually and gather media_fbid/video_id
-        const mediaResults = await Promise.all(files.map(async file => {
-            const isVideo = file.mimetype.startsWith('video/');
-            return await uploadFileToFacebook(pageId, accessToken, file, isVideo, caption);
-        }));
+        // Separate images and the first video
+        const videoFile = files.find(file => file.mimetype.startsWith('video/'));
+        const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
 
-        // Step 2: Prepare attached_media with media_fbid and video_id
-        const attachedMedia = mediaResults.map(result => ({
-            media_fbid: result.media_fbid || result.video_id
-        }));
+        // Upload the video first (Facebook API supports only one video per post)
+        let videoResult = null;
+        if (videoFile) {
+            videoResult = await uploadFileToFacebook(pageId, accessToken, videoFile, true, caption);
+        }
 
-        // Step 3: Create the final post with all media attached
+        // Upload images and collect their media_fbid
+        const imageResults = await Promise.all(
+            imageFiles.map(imageFile => uploadFileToFacebook(pageId, accessToken, imageFile, false))
+        );
+
+        // Collect media_fbid of images and video_id of the single video (if any)
+        const attachedMedia = imageResults.map(result => ({ media_fbid: result.media_fbid }));
+        if (videoResult) attachedMedia.push({ media_fbid: videoResult.video_id });
+
+        // Prepare final post data with all media attached
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
         };
-
         if (caption) postData.message = caption;
 
         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
@@ -530,5 +537,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 module.exports = router;
