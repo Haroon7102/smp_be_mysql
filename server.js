@@ -51,7 +51,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // aws routes
-app.use('./upload-to-s3', awsS3Routes)
+app.use('./upload', awsS3Routes)
 // Use the upload router
 app.use('/facebook-upload', facebookUploadRouter);
 

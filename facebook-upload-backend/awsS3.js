@@ -2,6 +2,17 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // Import 
 const express = require('express');
 const multer = require('multer'); // Import multer for handling file uploads
 const router = express.Router();
+const app = express();
+
+// Increase the payload size limit
+app.use(express.json({ limit: '50mb' })); // Adjust the limit as needed
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // Adjust the limit as needed
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // Limit to 10 MB per file
+});
+
 
 // Configure the S3 client
 const s3Client = new S3Client({
@@ -13,7 +24,6 @@ const s3Client = new S3Client({
 });
 
 // Set up multer to handle file uploads
-const upload = multer({ storage: multer.memoryStorage() });
 
 // Route to handle uploading files to S3
 router.post('/upload-to-s3', upload.array('files', 10), async (req, res) => {
