@@ -433,12 +433,152 @@
 
 // module.exports = router;
 
+// const express = require('express');
+// const fetch = require('node-fetch');
+// const multer = require('multer');
+// const FormData = require('form-data');
+// const cors = require('cors');
+// require('dotenv').config();
+// const app = express();
+
+// const router = express.Router();
+// const upload = multer({
+//     storage: multer.memoryStorage(),
+//     limits: { fileSize: 100 * 1024 * 1024 } // Adjust as needed, here 100MB
+// });
+
+// app.use(express.json({ limit: '600mb' })); // Set to an appropriate size
+// app.use(express.urlencoded({ limit: '600mb', extended: true }));
+// app.use((req, res, next) => {
+//     res.setTimeout(300000, () => { // Set timeout to 5 minutes (in ms)
+//         console.log('Request timed out');
+//         res.status(408).send('Request Timeout');
+//     });
+//     next();
+// });
+// router.use(cors({
+//     origin: 'https://smpfe.netlify.app',
+//     methods: ['POST'],
+//     credentials: true
+// }));
+
+// // Upload file to Facebook (image/video)
+// const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, caption) => {
+//     const formData = new FormData();
+//     formData.append('url', fileUrl); // Use S3 file URL instead of file.buffer
+//     formData.append('access_token', accessToken);
+
+//     // Add description for videos if caption is provided
+//     if (isVideo && caption) {
+//         formData.append('description', caption);
+//     }
+
+//     const url = isVideo
+//         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
+//         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
+
+//     const response = await fetch(url, {
+//         method: 'POST',
+//         body: formData,
+//         headers: formData.getHeaders(),
+//     });
+
+//     const result = await response.json();
+
+//     if (!response.ok) {
+//         throw new Error(result.error.message || 'Upload to Facebook failed');
+//     }
+
+//     // Return media_fbid for images or video_id for videos
+//     return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+// };
+
+// // Function to handle uploading videos and images in sequence
+// const uploadFilesSequentially = async (files, pageId, accessToken, caption) => {
+//     const videoResults = [];
+//     const imageResults = [];
+
+//     // Upload each file
+//     for (const file of files) {
+//         const fileUrl = file.url;  // This assumes the file is already uploaded to S3 and you have the URL.
+
+//         if (file.mimetype.startsWith('video/')) {
+//             // Upload video
+//             const videoResult = await uploadFileToFacebook(pageId, accessToken, fileUrl, true, caption);
+//             videoResults.push(videoResult);
+//         } else if (file.mimetype.startsWith('image/')) {
+//             // Upload image
+//             const imageResult = await uploadFileToFacebook(pageId, accessToken, fileUrl, false, caption);
+//             imageResults.push(imageResult);
+//         }
+//     }
+
+//     return { videoResults, imageResults };
+// };
+
+// // Route for uploading media
+// router.post('/upload', upload.array('files', 10), async (req, res) => {
+//     const { accessToken, pageId, caption } = req.body;
+//     const files = req.files;
+
+//     if (!accessToken || !pageId) {
+//         return res.status(400).json({ error: 'Access token and page ID are required.' });
+//     }
+
+//     try {
+//         // Handle files upload sequentially (images and videos)
+//         const { videoResults, imageResults } = await uploadFilesSequentially(files, pageId, accessToken, caption);
+
+//         // Prepare the attached media for Facebook post
+//         const attachedMedia = [];
+
+//         // Add images to the post data
+//         imageResults.forEach(result => attachedMedia.push({ media_fbid: result.media_fbid }));
+
+//         // Add videos to the post data (one per post)
+//         videoResults.forEach(result => attachedMedia.push({ media_fbid: result.video_id }));
+
+//         const postData = {
+//             access_token: accessToken,
+//             attached_media: JSON.stringify(attachedMedia),
+//         };
+
+//         if (caption) postData.message = caption;
+
+//         // Create a post on Facebook feed with images and videos
+//         const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+//         const postResponse = await fetch(postUrl, {
+//             method: 'POST',
+//             body: new URLSearchParams(postData),
+//         });
+
+//         const postResult = await postResponse.json();
+
+//         if (!postResponse.ok) {
+//             throw new Error(postResult.error.message || 'Failed to post to Facebook feed');
+//         }
+
+//         res.json({ success: true, postId: postResult.id });
+//     } catch (error) {
+//         console.error('Error during upload:', error);
+//         res.status(500).json({ error: 'Upload failed', details: error.message });
+//     }
+// });
+
+// module.exports = router;
+
+
+
+
+
+
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
 require('dotenv').config();
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // Import AWS SDK for S3
 const app = express();
 
 const router = express.Router();
@@ -447,20 +587,39 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 } // Adjust as needed, here 100MB
 });
 
-app.use(express.json({ limit: '600mb' })); // Set to an appropriate size
-app.use(express.urlencoded({ limit: '600mb', extended: true }));
-app.use((req, res, next) => {
-    res.setTimeout(300000, () => { // Set timeout to 5 minutes (in ms)
-        console.log('Request timed out');
-        res.status(408).send('Request Timeout');
-    });
-    next();
+// Configure the S3 client
+const s3Client = new S3Client({
+    region: 'us-east-1', // Replace with your AWS region
+    credentials: {
+        accessKeyId: 'AKIAZPPGAA7WPICT4356',  // Store in environment variables
+        secretAccessKey: 'kA1y/vXN1MNlXXYqAmqP5s6+xkT7aUrpXVi5F9Ab' // Store in environment variables
+    }
 });
-router.use(cors({
-    origin: 'https://smpfe.netlify.app',
-    methods: ['POST'],
-    credentials: true
-}));
+
+// Function to upload files to S3 and get URLs
+const uploadFilesToS3 = async (files) => {
+    const fileUrls = [];
+
+    for (const file of files) {
+        const params = {
+            Bucket: 'smpbe',  // Replace with your actual S3 bucket name
+            Key: `uploads/${Date.now()}_${file.originalname}`,
+            Body: file.buffer,
+            ContentType: file.mimetype
+            // ACL: 'public-read'
+        };
+
+        // Upload file to S3
+        const command = new PutObjectCommand(params);
+        await s3Client.send(command);
+
+        // Get the URL of the uploaded file
+        const fileUrl = `https://${params.Bucket}.s3.amazonaws.com/${params.Key}`;
+        fileUrls.push(fileUrl);
+    }
+
+    return fileUrls;
+};
 
 // Upload file to Facebook (image/video)
 const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, caption) => {
@@ -526,8 +685,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Handle files upload sequentially (images and videos)
-        const { videoResults, imageResults } = await uploadFilesSequentially(files, pageId, accessToken, caption);
+        // Step 1: Upload files to S3 and get URLs
+        const fileUrls = await uploadFilesToS3(files);
+
+        // Prepare files with URLs to upload to Facebook
+        const filesWithUrls = files.map((file, index) => ({
+            ...file,
+            url: fileUrls[index],
+        }));
+
+        // Step 2: Upload files to Facebook using URLs
+        const { videoResults, imageResults } = await uploadFilesSequentially(filesWithUrls, pageId, accessToken, caption);
 
         // Prepare the attached media for Facebook post
         const attachedMedia = [];
