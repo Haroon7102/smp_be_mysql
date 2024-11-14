@@ -433,7 +433,6 @@
 
 // module.exports = router;
 
-
 const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
@@ -464,9 +463,9 @@ router.use(cors({
 }));
 
 // Upload file to Facebook (image/video)
-const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption) => {
+const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, caption) => {
     const formData = new FormData();
-    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+    formData.append('url', fileUrl); // Use S3 file URL instead of file.buffer
     formData.append('access_token', accessToken);
 
     // Add description for videos if caption is provided
@@ -496,19 +495,23 @@ const uploadFileToFacebook = async (pageId, accessToken, file, isVideo, caption)
 
 // Function to handle uploading videos and images in sequence
 const uploadFilesSequentially = async (files, pageId, accessToken, caption) => {
-    const videoFiles = files.filter(file => file.mimetype.startsWith('video/'));
-    const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
+    const videoResults = [];
+    const imageResults = [];
 
-    let videoResults = [];
-    for (let videoFile of videoFiles) {
-        // Upload each video one by one
-        const videoResult = await uploadFileToFacebook(pageId, accessToken, videoFile, true, caption);
-        videoResults.push(videoResult);
+    // Upload each file
+    for (const file of files) {
+        const fileUrl = file.url;  // This assumes the file is already uploaded to S3 and you have the URL.
+
+        if (file.mimetype.startsWith('video/')) {
+            // Upload video
+            const videoResult = await uploadFileToFacebook(pageId, accessToken, fileUrl, true, caption);
+            videoResults.push(videoResult);
+        } else if (file.mimetype.startsWith('image/')) {
+            // Upload image
+            const imageResult = await uploadFileToFacebook(pageId, accessToken, fileUrl, false, caption);
+            imageResults.push(imageResult);
+        }
     }
-
-    const imageResults = await Promise.all(
-        imageFiles.map(imageFile => uploadFileToFacebook(pageId, accessToken, imageFile, false))
-    );
 
     return { videoResults, imageResults };
 };
@@ -523,7 +526,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Handle files upload sequentially
+        // Handle files upload sequentially (images and videos)
         const { videoResults, imageResults } = await uploadFilesSequentially(files, pageId, accessToken, caption);
 
         // Prepare the attached media for Facebook post
@@ -539,6 +542,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
         };
+
         if (caption) postData.message = caption;
 
         // Create a post on Facebook feed with images and videos
