@@ -16,7 +16,7 @@ const upload = multer({
 
 // Configure the S3 client
 const s3Client = new S3Client({
-    region: 'US East (N. Virginia) us-east-1', // Replace with your AWS region
+    region: 'us-east-1', // Replace with your AWS region
     credentials: {
         accessKeyId: 'AKIAZPPGAA7WPICT4356',  // Store in environment variables
         secretAccessKey: 'kA1y/vXN1MNlXXYqAmqP5s6+xkT7aUrpXVi5F9Ab' // Store in environment variables
