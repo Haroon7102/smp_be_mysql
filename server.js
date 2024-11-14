@@ -13,7 +13,7 @@ const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
 // const facebookRoutes = require('./auth/facebookRoutes');
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
-// const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace with actual path to awsS3.js
+const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace with actual path to awsS3.js
 
 
 
@@ -51,7 +51,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // aws routes
-// app.use('/upload', awsS3Routes);
+app.use('/upload', awsS3Routes);
 // Use the upload router
 app.use('/facebook-upload', facebookUploadRouter);
 
