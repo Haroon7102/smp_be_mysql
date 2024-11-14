@@ -53,7 +53,7 @@ router.post('/upload-to-s3', upload.array('files', 10), async (req, res) => {
         return res.status(200).json({ files: uploadedFiles });
     } catch (error) {
         console.error('Error uploading files to S3:', error);
-        return res.status(500).json({ message: 'Failed to upload files to S3' });
+        return res.status(500).json({ message: 'Failed to upload files to S3', error: error.message });
     }
 });
 
