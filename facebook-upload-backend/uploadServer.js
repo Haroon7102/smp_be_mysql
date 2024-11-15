@@ -470,12 +470,14 @@ const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
         const params = new URLSearchParams({
             access_token: accessToken,
             upload_phase: 'start',
-            file_size: 1000000 // Replace with actual file size if available
+            file_size: 1000000 // Replace with the actual file size
         });
 
         const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to start resumable upload');
-        return await response.json();
+        const result = await response.json();
+        if (!response.ok) throw new Error(`Failed to start upload: ${result.error?.message}`);
+        console.log('Upload session started:', result);
+        return result;
     };
 
     const transferChunk = async (uploadSessionId, startOffset, endOffset) => {
@@ -488,8 +490,10 @@ const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
         });
 
         const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to upload video chunk');
-        return await response.json();
+        const result = await response.json();
+        if (!response.ok) throw new Error(`Failed to upload chunk: ${result.error?.message}`);
+        console.log('Chunk transferred:', result);
+        return result;
     };
 
     const finishResumableUpload = async (uploadSessionId) => {
@@ -501,16 +505,20 @@ const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
         });
 
         const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to finish resumable upload');
-        return await response.json();
+        const result = await response.json();
+        if (!response.ok) throw new Error(`Failed to finish upload: ${result.error?.message}`);
+        console.log('Upload finished:', result);
+        return result;
     };
 
     try {
+        console.log('Starting resumable upload...');
         const startResponse = await startResumableUpload();
         const { upload_session_id, start_offset, end_offset } = startResponse;
 
         let nextStartOffset = start_offset;
         while (nextStartOffset < end_offset) {
+            console.log(`Uploading chunk: start_offset=${nextStartOffset}, end_offset=${end_offset}`);
             const transferResponse = await transferChunk(upload_session_id, nextStartOffset, end_offset);
             nextStartOffset = transferResponse.start_offset;
         }
@@ -522,6 +530,7 @@ const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
         throw error;
     }
 };
+
 
 // Image Upload Implementation
 const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
