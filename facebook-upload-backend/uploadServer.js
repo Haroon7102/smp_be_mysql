@@ -432,6 +432,7 @@
 // });
 
 // module.exports = router;
+
 const express = require('express');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
@@ -457,10 +458,11 @@ router.use(cors({
     credentials: true
 }));
 
-// Upload file to Facebook (image/video)
-const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, caption) => {
+// Function to retry uploading to Facebook
+const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVideo, caption, retries = 3) => {
     const formData = new FormData();
     formData.append('url', fileUrl); // Using S3 file URL
+    console.log(fileUrl);
     formData.append('access_token', accessToken);
 
     if (isVideo && caption) {
@@ -471,37 +473,40 @@ const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, capti
         ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
         : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        });
 
-    const result = await response.json();
-    console.log('Facebook API Response:', result); // Log the full response
+        const result = await response.json();
+        console.log('Facebook API Response:', result); // Log the full response
 
+        if (!response.ok) {
+            throw new Error(result.error.message || 'Upload to Facebook failed');
+        }
 
-    if (!response.ok) {
-        console.error('Upload Error Details:', result); // Detailed error logging
-
-        throw new Error(result.error.message || 'Upload to Facebook failed');
+        return isVideo ? { video_id: result.id } : { media_fbid: result.id };
+    } catch (error) {
+        if (retries > 0) {
+            console.log(`Retrying upload... Attempts left: ${retries}`);
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Delay before retry
+            return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideo, caption, retries - 1);
+        } else {
+            throw new Error(`Failed to upload after multiple attempts: ${error.message}`);
+        }
     }
-
-    return isVideo ? { video_id: result.id } : { media_fbid: result.id };
 };
 
-// Function to handle uploading videos and images in sequence
-const uploadFilesSequentially = async (fileUrls, pageId, accessToken, caption) => {
-    const videoResults = [];
-    const imageResults = [];
-
-    for (const fileUrl of fileUrls) {
+// Function to handle concurrent uploading of videos and images
+const uploadFilesConcurrently = async (fileUrls, pageId, accessToken, caption) => {
+    const uploadPromises = fileUrls.map(async (fileUrl) => {
         const isVideo = fileUrl.endsWith('.mp4'); // Adjust based on your file handling
-        const uploadResult = await uploadFileToFacebook(pageId, accessToken, fileUrl, isVideo, caption);
-        isVideo ? videoResults.push(uploadResult) : imageResults.push(uploadResult);
-    }
+        return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideo, caption);
+    });
 
-    return { videoResults, imageResults };
+    return Promise.all(uploadPromises);
 };
 
 // Route for uploading media to Facebook
@@ -513,12 +518,12 @@ router.post('/upload', async (req, res) => {
     }
 
     try {
-        // Handle files upload sequentially (images and videos)
-        const { videoResults, imageResults } = await uploadFilesSequentially(mediaUrls, pageId, accessToken, caption);
+        // Handle files upload concurrently (images and videos)
+        const uploadResults = await uploadFilesConcurrently(mediaUrls, pageId, accessToken, caption);
 
-        const attachedMedia = [];
-        imageResults.forEach(result => attachedMedia.push({ media_fbid: result.media_fbid }));
-        videoResults.forEach(result => attachedMedia.push({ media_fbid: result.video_id }));
+        const attachedMedia = uploadResults.map(result => {
+            return result.video_id ? { media_fbid: result.video_id } : { media_fbid: result.media_fbid };
+        });
 
         const postData = {
             access_token: accessToken,
@@ -548,6 +553,7 @@ router.post('/upload', async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 
