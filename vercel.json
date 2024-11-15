@@ -1,25 +1,23 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "facebook-upload-backend/uploadServer.js",  
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 60  
+    "version": 2,
+    "builds": [
+      {
+        "src": "server.js",
+        "use": "@vercel/node"
       }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "facebook-upload-backend/uploadServer.js",  
-      "headers": {
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "/server.js",
+        "headers": {
         "Access-Control-Allow-Origin": "https://smpfe.netlify.app",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Allow-Credentials": "true"
       }
-    }
-  ]
-}
+      }
+    ]
+  }
+  
 
