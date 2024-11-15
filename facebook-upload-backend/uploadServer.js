@@ -462,38 +462,43 @@ router.use(cors({
 const isVideo = (url) => {
     return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.avi');
 };
+const getFileSize = async (fileUrl) => {
+    const response = await fetch(fileUrl, { method: 'HEAD' });
+    const fileSize = response.headers.get('content-length');
+    if (!fileSize) {
+        throw new Error('Unable to fetch file size for the video.');
+    }
+    return parseInt(fileSize, 10);
+};
 
 // Resumable Video Upload Implementation
 const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
+    const fileSize = await getFileSize(fileUrl);
+
     const startResumableUpload = async () => {
         const url = `https://graph-video.facebook.com/v21.0/${pageId}/videos`;
         const params = new URLSearchParams({
             access_token: accessToken,
             upload_phase: 'start',
-            file_size: 1000000 // Replace with the actual file size
+            file_size: fileSize
         });
 
         const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
         const result = await response.json();
         if (!response.ok) throw new Error(`Failed to start upload: ${result.error?.message}`);
-        console.log('Upload session started:', result);
         return result;
     };
 
-    const transferChunk = async (uploadSessionId, startOffset, endOffset) => {
-        const url = `https://graph-video.facebook.com/v21.0/${pageId}/videos`;
-        const params = new URLSearchParams({
-            access_token: accessToken,
-            upload_phase: 'transfer',
-            upload_session_id: uploadSessionId,
-            start_offset: startOffset
-        });
-
-        const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
-        const result = await response.json();
-        if (!response.ok) throw new Error(`Failed to upload chunk: ${result.error?.message}`);
-        console.log('Chunk transferred:', result);
-        return result;
+    const transferChunkWithRetry = async (uploadSessionId, startOffset, endOffset, retries = 3) => {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                return await transferChunk(uploadSessionId, startOffset, endOffset, fileUrl);
+            } catch (error) {
+                console.log(`Retrying chunk upload (Attempt ${attempt}/${retries})...`);
+                if (attempt === retries) throw error;
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Exponential backoff
+            }
+        }
     };
 
     const finishResumableUpload = async (uploadSessionId) => {
@@ -507,29 +512,27 @@ const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
         const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
         const result = await response.json();
         if (!response.ok) throw new Error(`Failed to finish upload: ${result.error?.message}`);
-        console.log('Upload finished:', result);
         return result;
     };
 
     try {
-        console.log('Starting resumable upload...');
         const startResponse = await startResumableUpload();
-        const { upload_session_id, start_offset, end_offset } = startResponse;
+        let { upload_session_id, start_offset, end_offset } = startResponse;
 
-        let nextStartOffset = start_offset;
-        while (nextStartOffset < end_offset) {
-            console.log(`Uploading chunk: start_offset=${nextStartOffset}, end_offset=${end_offset}`);
-            const transferResponse = await transferChunk(upload_session_id, nextStartOffset, end_offset);
-            nextStartOffset = transferResponse.start_offset;
+        while (parseInt(start_offset) < parseInt(end_offset)) {
+            const transferResponse = await transferChunkWithRetry(upload_session_id, start_offset, end_offset);
+            start_offset = transferResponse.start_offset;
+            end_offset = transferResponse.end_offset;
         }
 
         const finishResponse = await finishResumableUpload(upload_session_id);
         return { video_id: finishResponse.video_id };
     } catch (error) {
-        console.error('Error during resumable upload:', error.message);
+        console.error('Error during upload:', error.message);
         throw error;
     }
 };
+
 
 
 // Image Upload Implementation
