@@ -441,137 +441,159 @@ require('dotenv').config();
 const app = express();
 const router = express.Router();
 
+// Middleware Configuration
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ limit: '600mb', extended: true }));
-
-// Extend request timeout for large uploads
 app.use((req, res, next) => {
-    res.setTimeout(700000, () => {
+    res.setTimeout(700000, () => { // 700 seconds timeout
         console.log('Request timed out');
         res.status(408).send('Request Timeout');
     });
     next();
 });
 
-router.use(
-    cors({
-        origin: 'https://smpfe.netlify.app',
-        methods: ['POST'],
-        credentials: true,
-    })
-);
+router.use(cors({
+    origin: 'https://smpfe.netlify.app',
+    methods: ['POST'],
+    credentials: true
+}));
 
-// Helper function to check if URL is a video
+// Helper function to check if a URL is a video
 const isVideo = (url) => {
     return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.avi');
 };
 
-// Retry logic for uploading files
-const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVideoFile, caption, retries = 3, retryDelay = 8000) => {
-    const formData = new FormData();
-    formData.append('url', fileUrl); // File URL is used for upload
-    formData.append('access_token', accessToken);
-
-    if (caption && isVideoFile) {
-        formData.append('description', caption);
-    }
-
-    const url = isVideoFile
-        ? `https://graph-video.facebook.com/v21.0/${pageId}/videos`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?published=false`;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: formData.getHeaders(),
+// Resumable Video Upload Implementation
+const uploadVideoResumably = async (pageId, accessToken, fileUrl, caption) => {
+    const startResumableUpload = async () => {
+        const url = `https://graph-video.facebook.com/v21.0/${pageId}/videos`;
+        const params = new URLSearchParams({
+            access_token: accessToken,
+            upload_phase: 'start',
+            file_size: 1000000 // Replace with actual file size if available
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error?.message || 'Upload to Facebook failed');
+        const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to start resumable upload');
+        return await response.json();
+    };
+
+    const transferChunk = async (uploadSessionId, startOffset, endOffset) => {
+        const url = `https://graph-video.facebook.com/v21.0/${pageId}/videos`;
+        const params = new URLSearchParams({
+            access_token: accessToken,
+            upload_phase: 'transfer',
+            upload_session_id: uploadSessionId,
+            start_offset: startOffset
+        });
+
+        const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to upload video chunk');
+        return await response.json();
+    };
+
+    const finishResumableUpload = async (uploadSessionId) => {
+        const url = `https://graph-video.facebook.com/v21.0/${pageId}/videos`;
+        const params = new URLSearchParams({
+            access_token: accessToken,
+            upload_phase: 'finish',
+            upload_session_id: uploadSessionId
+        });
+
+        const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to finish resumable upload');
+        return await response.json();
+    };
+
+    try {
+        const startResponse = await startResumableUpload();
+        const { upload_session_id, start_offset, end_offset } = startResponse;
+
+        let nextStartOffset = start_offset;
+        while (nextStartOffset < end_offset) {
+            const transferResponse = await transferChunk(upload_session_id, nextStartOffset, end_offset);
+            nextStartOffset = transferResponse.start_offset;
         }
 
-        return isVideoFile ? { video_id: result.id } : { media_fbid: result.id };
+        const finishResponse = await finishResumableUpload(upload_session_id);
+        return { video_id: finishResponse.video_id };
     } catch (error) {
-        if (retries > 0) {
-            console.log(`Retrying upload for ${fileUrl}... Attempts left: ${retries}`);
-            await new Promise((resolve) => setTimeout(resolve, retryDelay));
-            return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideoFile, caption, retries - 1, retryDelay);
-        } else {
-            throw new Error(`Failed after multiple attempts for ${fileUrl}: ${error.message}`);
-        }
+        console.error('Error during resumable upload:', error.message);
+        throw error;
     }
 };
 
-// Separate function for video and image uploads
-const uploadFiles = async (mediaUrls, pageId, accessToken, caption) => {
-    const imageUrls = mediaUrls.filter((url) => !isVideo(url));
-    const videoUrls = mediaUrls.filter((url) => isVideo(url));
+// Image Upload Implementation
+const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
+    const formData = new FormData();
+    formData.append('url', fileUrl);
+    formData.append('access_token', accessToken);
 
-    const imageUploadPromises = imageUrls.map((url) =>
-        uploadFileToFacebookWithRetry(pageId, accessToken, url, false, caption)
-    );
-    const videoUploadPromises = videoUrls.map((url) =>
-        uploadFileToFacebookWithRetry(pageId, accessToken, url, true, caption)
-    );
+    if (caption) {
+        formData.append('caption', caption);
+    }
 
-    const imageResults = await Promise.allSettled(imageUploadPromises);
-    const videoResults = await Promise.allSettled(videoUploadPromises);
+    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
-    return [...imageResults, ...videoResults];
+    const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: formData.getHeaders()
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error.message || 'Failed to upload image');
+    return { media_fbid: result.id };
 };
 
-// Route to handle media uploads
+// Upload Media Route
 router.post('/upload', async (req, res) => {
     const { accessToken, pageId, caption, mediaUrls } = req.body;
 
-    if (!accessToken || !pageId || !mediaUrls?.length) {
-        return res.status(400).json({ error: 'Access token, page ID, and media URLs are required.' });
+    if (!accessToken || !pageId || !mediaUrls || mediaUrls.length === 0) {
+        return res.status(400).json({ error: 'Missing required fields: accessToken, pageId, mediaUrls' });
     }
 
     try {
-        const validUrls = mediaUrls.filter((url) => url.startsWith('http'));
-        if (validUrls.length !== mediaUrls.length) {
-            return res.status(400).json({ error: 'One or more URLs are invalid.' });
-        }
+        const uploadPromises = mediaUrls.map(async (url) => {
+            const isVideoFile = isVideo(url);
+            if (isVideoFile) {
+                return uploadVideoResumably(pageId, accessToken, url, caption);
+            } else {
+                return uploadImage(pageId, accessToken, url, caption);
+            }
+        });
 
-        const uploadResults = await uploadFiles(validUrls, pageId, accessToken, caption);
+        const results = await Promise.all(uploadPromises);
 
-        const attachedMedia = uploadResults
-            .filter((result) => result.status === 'fulfilled')
-            .map((result) => {
-                const data = result.value;
-                return data.video_id ? { media_fbid: data.video_id } : { media_fbid: data.media_fbid };
-            });
+        const attachedMedia = results.map(result => {
+            return result.video_id
+                ? { media_fbid: result.video_id }
+                : { media_fbid: result.media_fbid };
+        });
 
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
+            message: caption
         };
-        if (caption) postData.message = caption;
 
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
-            body: new URLSearchParams(postData),
+            body: new URLSearchParams(postData)
         });
 
         const postResult = await postResponse.json();
-        if (!postResponse.ok) {
-            throw new Error(postResult.error?.message || 'Failed to post on Facebook');
-        }
+        if (!postResponse.ok) throw new Error(postResult.error.message || 'Failed to post on Facebook');
 
         res.json({ success: true, postId: postResult.id });
     } catch (error) {
         console.error('Error during upload:', error.message);
-        res.status(500).json({ error: 'Upload failed', details: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
 module.exports = router;
-
-
-
 
 
 
