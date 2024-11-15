@@ -17,12 +17,7 @@
         "Access-Control-Allow-Credentials": "true"
       }
       }
-    ],
-    "functions": {
-      "server.js": {
-        "timeout": 60
-      }
-    }
+    ]
   }
   
 

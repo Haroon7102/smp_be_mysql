@@ -20,10 +20,10 @@ const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace wi
 const app = express();
 const PORT = process.env.PORT || 5000;
 // Set a global timeout
-app.use(express.json({ limit: '100mb' })); // Set to an appropriate size
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '600mb' }));
+app.use(express.urlencoded({ limit: '600mb', extended: true }));
 app.use((req, res, next) => {
-    res.setTimeout(300000, () => { // Set timeout to 5 minutes (in ms)
+    res.setTimeout(60000, () => {  // Set timeout for each request to 60 seconds
         console.log('Request timed out');
         res.status(408).send('Request Timeout');
     });
