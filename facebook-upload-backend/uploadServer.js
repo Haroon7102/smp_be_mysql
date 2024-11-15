@@ -432,7 +432,6 @@
 // });
 
 // module.exports = router;
-
 const express = require('express');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
@@ -445,7 +444,7 @@ const router = express.Router();
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ limit: '600mb', extended: true }));
 app.use((req, res, next) => {
-    res.setTimeout(300000, () => {
+    res.setTimeout(700000, () => {
         console.log('Request timed out');
         res.status(408).send('Request Timeout');
     });
@@ -477,7 +476,6 @@ const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVid
         const response = await fetch(url, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders(),
         });
 
         const result = await response.json();
@@ -499,11 +497,10 @@ const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVid
     }
 };
 
-
 // Function to handle concurrent uploading of videos and images
 const uploadFilesConcurrently = async (fileUrls, pageId, accessToken, caption) => {
     const uploadPromises = fileUrls.map(async (fileUrl) => {
-        const isVideo = fileUrl.endsWith('.mp4'); // Adjust based on your file handling
+        const isVideo = fileUrl.endsWith('.mp4'); // Adjust based on your file handling (consider file types)
         return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideo, caption);
     });
 
@@ -522,6 +519,7 @@ router.post('/upload', async (req, res) => {
         // Handle files upload concurrently (images and videos)
         const uploadResults = await uploadFilesConcurrently(mediaUrls, pageId, accessToken, caption);
 
+        // Prepare attached media for posting to Facebook
         const attachedMedia = uploadResults.map(result => {
             return result.video_id ? { media_fbid: result.video_id } : { media_fbid: result.media_fbid };
         });
