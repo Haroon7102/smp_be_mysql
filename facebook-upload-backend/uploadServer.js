@@ -482,6 +482,8 @@ const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, capti
 
 
     if (!response.ok) {
+        console.error('Upload Error Details:', result); // Detailed error logging
+
         throw new Error(result.error.message || 'Upload to Facebook failed');
     }
 
