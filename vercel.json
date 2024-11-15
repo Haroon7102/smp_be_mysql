@@ -1,25 +1,21 @@
 {
-    "version": 2,
-    "builds": [
+  "version": 2,
+  "functions": {
+      "server.js": {
+          "runtime": "nodejs18.x",
+          "maxDuration": 60
+      }
+  },
+  "routes": [
       {
-        "src": "server.js",
-        "use": "@vercel/node",
-        "maxDuration": 60
-
+          "src": "/(.*)",
+          "dest": "/server.js",
+          "headers": {
+              "Access-Control-Allow-Origin": "https://smpfe.netlify.app",
+              "Access-Control-Allow-Methods": "POST, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+              "Access-Control-Allow-Credentials": "true"
+          }
       }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/server.js",
-        "headers": {
-        "Access-Control-Allow-Origin": "https://smpfe.netlify.app",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true"
-      }
-      }
-    ]
-  }
-  
-
+  ]
+}
