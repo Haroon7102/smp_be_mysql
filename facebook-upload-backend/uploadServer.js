@@ -443,6 +443,8 @@ const router = express.Router();
 
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ limit: '600mb', extended: true }));
+
+// Extend request timeout for large uploads
 app.use((req, res, next) => {
     res.setTimeout(700000, () => {
         console.log('Request timed out');
@@ -451,20 +453,23 @@ app.use((req, res, next) => {
     next();
 });
 
-router.use(cors({
-    origin: 'https://smpfe.netlify.app',
-    methods: ['POST'],
-    credentials: true
-}));
+router.use(
+    cors({
+        origin: 'https://smpfe.netlify.app',
+        methods: ['POST'],
+        credentials: true,
+    })
+);
 
-// Helper function to check whether a URL is for an image or video
+// Helper function to check if URL is a video
 const isVideo = (url) => {
     return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.avi');
 };
 
+// Retry logic for uploading files
 const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVideoFile, caption, retries = 3, retryDelay = 8000) => {
     const formData = new FormData();
-    formData.append('url', fileUrl);  // Using the file URL
+    formData.append('url', fileUrl); // File URL is used for upload
     formData.append('access_token', accessToken);
 
     if (caption && isVideoFile) {
@@ -483,84 +488,88 @@ const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVid
         });
 
         const result = await response.json();
-        console.log('Facebook API Response:', result);
-
         if (!response.ok) {
-            throw new Error(result.error.message || 'Upload to Facebook failed');
+            throw new Error(result.error?.message || 'Upload to Facebook failed');
         }
 
         return isVideoFile ? { video_id: result.id } : { media_fbid: result.id };
     } catch (error) {
         if (retries > 0) {
-            console.log(`Retrying upload... Attempts left: ${retries}`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));  // Increased delay before retry
+            console.log(`Retrying upload for ${fileUrl}... Attempts left: ${retries}`);
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
             return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideoFile, caption, retries - 1, retryDelay);
         } else {
-            throw new Error(`Failed to upload after multiple attempts: ${error.message}`);
+            throw new Error(`Failed after multiple attempts for ${fileUrl}: ${error.message}`);
         }
     }
 };
 
-// Function to handle concurrent uploading of videos and images
-const uploadFilesConcurrently = async (fileUrls, pageId, accessToken, caption) => {
-    const uploadPromises = fileUrls.map(async (fileUrl) => {
-        const isVideoFile = isVideo(fileUrl);  // Check if the URL is a video
-        return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideoFile, caption);
-    });
+// Separate function for video and image uploads
+const uploadFiles = async (mediaUrls, pageId, accessToken, caption) => {
+    const imageUrls = mediaUrls.filter((url) => !isVideo(url));
+    const videoUrls = mediaUrls.filter((url) => isVideo(url));
 
-    return Promise.all(uploadPromises);
+    const imageUploadPromises = imageUrls.map((url) =>
+        uploadFileToFacebookWithRetry(pageId, accessToken, url, false, caption)
+    );
+    const videoUploadPromises = videoUrls.map((url) =>
+        uploadFileToFacebookWithRetry(pageId, accessToken, url, true, caption)
+    );
+
+    const imageResults = await Promise.allSettled(imageUploadPromises);
+    const videoResults = await Promise.allSettled(videoUploadPromises);
+
+    return [...imageResults, ...videoResults];
 };
 
-// Route for uploading media to Facebook
+// Route to handle media uploads
 router.post('/upload', async (req, res) => {
-    const { accessToken, pageId, caption, mediaUrls } = req.body; // mediaUrls are URLs passed from the frontend
+    const { accessToken, pageId, caption, mediaUrls } = req.body;
 
-    if (!accessToken || !pageId || !mediaUrls || !mediaUrls.length) {
+    if (!accessToken || !pageId || !mediaUrls?.length) {
         return res.status(400).json({ error: 'Access token, page ID, and media URLs are required.' });
     }
 
     try {
-        // Ensure that the URLs are valid
-        const validUrls = mediaUrls.filter(url => url.startsWith('http'));
+        const validUrls = mediaUrls.filter((url) => url.startsWith('http'));
         if (validUrls.length !== mediaUrls.length) {
             return res.status(400).json({ error: 'One or more URLs are invalid.' });
         }
 
-        // Handle files upload concurrently (images and videos)
-        const uploadResults = await uploadFilesConcurrently(validUrls, pageId, accessToken, caption);
+        const uploadResults = await uploadFiles(validUrls, pageId, accessToken, caption);
 
-        const attachedMedia = uploadResults.map(result => {
-            return result.video_id ? { media_fbid: result.video_id } : { media_fbid: result.media_fbid };
-        });
+        const attachedMedia = uploadResults
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => {
+                const data = result.value;
+                return data.video_id ? { media_fbid: data.video_id } : { media_fbid: data.media_fbid };
+            });
 
         const postData = {
             access_token: accessToken,
             attached_media: JSON.stringify(attachedMedia),
         };
-
         if (caption) postData.message = caption;
 
-        // Create a post on Facebook feed with images and videos
-        const postUrl = `https://graph.facebook.com/v21.0/${pageId}/feed`;
-        const postResponse = await fetch(postUrl, {
+        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
 
         const postResult = await postResponse.json();
-
         if (!postResponse.ok) {
-            throw new Error(postResult.error.message || 'Failed to post to Facebook feed');
+            throw new Error(postResult.error?.message || 'Failed to post on Facebook');
         }
 
         res.json({ success: true, postId: postResult.id });
     } catch (error) {
-        console.error('Error during upload:', error);
+        console.error('Error during upload:', error.message);
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
 
 module.exports = router;
+
 
 
 
