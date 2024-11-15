@@ -478,6 +478,8 @@ const uploadFileToFacebook = async (pageId, accessToken, fileUrl, isVideo, capti
     });
 
     const result = await response.json();
+    console.log('Facebook API Response:', result); // Log the full response
+
 
     if (!response.ok) {
         throw new Error(result.error.message || 'Upload to Facebook failed');
