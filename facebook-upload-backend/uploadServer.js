@@ -459,7 +459,7 @@ router.use(cors({
 }));
 
 // Function to retry uploading to Facebook
-const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVideo, caption, retries = 3) => {
+const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVideo, caption, retries = 3, retryDelay = 8000) => {
     const formData = new FormData();
     formData.append('url', fileUrl); // Using S3 file URL
     console.log(fileUrl);
@@ -491,13 +491,14 @@ const uploadFileToFacebookWithRetry = async (pageId, accessToken, fileUrl, isVid
     } catch (error) {
         if (retries > 0) {
             console.log(`Retrying upload... Attempts left: ${retries}`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // Delay before retry
-            return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideo, caption, retries - 1);
+            await new Promise(resolve => setTimeout(resolve, retryDelay)); // Increased delay before retry
+            return uploadFileToFacebookWithRetry(pageId, accessToken, fileUrl, isVideo, caption, retries - 1, retryDelay);
         } else {
             throw new Error(`Failed to upload after multiple attempts: ${error.message}`);
         }
     }
 };
+
 
 // Function to handle concurrent uploading of videos and images
 const uploadFilesConcurrently = async (fileUrls, pageId, accessToken, caption) => {
