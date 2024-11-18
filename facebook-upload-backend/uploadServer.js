@@ -917,9 +917,14 @@ router.use(cors({
 }));
 
 router.post('/upload', async (req, res) => {
-    const { caption, pageId, accessToken, postType } = req.body;
-    const mediaUrls = req.body.mediaUrls || []; // URLs of uploaded media from S3
-
+    const { caption, pageId, accessToken, postType, fileUrl } = req.body;
+    // const mediaUrls = req.body.mediaUrls || []; // URLs of uploaded media from S3
+    const formData = new FormData();
+    formData.append('page_id', pageId);
+    formData.append('url', fileUrl);
+    formData.append('access_token', accessToken);
+    formData.append('post_type', postType);
+    if (caption) formData.append('caption', caption);
     if (!pageId || !accessToken || !postType) {
         return res.status(400).json({ error: 'Page ID, Access Token, and Post Type are required.' });
     }
