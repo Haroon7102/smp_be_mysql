@@ -40,8 +40,8 @@ router.post('/upload-to-s3', upload.array('files', 10), async (req, res) => {
                 Bucket: 'smpbe',  // Replace with your actual S3 bucket name
                 Key: `uploads/${Date.now()}_${file.originalname}`,
                 Body: file.buffer,
-                ContentType: file.mimetype
-                // ACL: 'public-read'
+                ContentType: file.mimetype,
+                ACL: 'public-read'
             };
 
             // Create a new command for uploading
