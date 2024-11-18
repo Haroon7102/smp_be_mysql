@@ -833,7 +833,7 @@ const uploadVideo = async (pageId, accessToken, fileUrl, caption) => {
     const result = await response.json();
 
     if (!response.ok) throw new Error(result.error.message || 'Failed to upload video');
-    return { media_fbid: result.id }; // Use 'media_fbid' for consistency
+    return { media_fbid: result.id }; // 'media_fbid' for video
 };
 
 // Image Upload Implementation
@@ -848,7 +848,7 @@ const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
     const result = await response.json();
 
     if (!response.ok) throw new Error(result.error.message || 'Failed to upload image');
-    return { media_fbid: result.id }; // 'media_fbid' for images as well
+    return { media_fbid: result.id }; // 'media_fbid' for images
 };
 
 // Upload Media and Post to Facebook Route
@@ -862,6 +862,7 @@ router.post('/upload', async (req, res) => {
     try {
         // Upload all media items and collect their media IDs
         const uploadPromises = mediaUrls.map(async (url) => {
+            console.log('Uploading media:', url);  // Debugging log
             if (isVideo(url)) {
                 return uploadVideo(pageId, accessToken, url, caption);
             } else {
@@ -872,10 +873,16 @@ router.post('/upload', async (req, res) => {
         // Wait for all uploads to finish and get their media IDs
         const uploadedMedia = await Promise.all(uploadPromises);
 
+        // Log the uploaded media to check the results
+        console.log("Uploaded media details:", uploadedMedia);
+
         // Prepare the attached_media array for the Facebook post
         const attachedMedia = uploadedMedia.map(item => ({
-            media_fbid: item.media_fbid
+            media_fbid: item.media_fbid // Use 'media_fbid' for each uploaded media
         }));
+
+        // Log the attached_media to ensure it's correctly formatted
+        console.log("Attached media format:", attachedMedia);
 
         // Post the media in a single feed
         const postData = {
@@ -890,6 +897,9 @@ router.post('/upload', async (req, res) => {
         });
 
         const postResult = await postResponse.json();
+
+        // Log the response for debugging
+        console.log("Post result:", postResult);
 
         if (!postResponse.ok) throw new Error(postResult.error.message || 'Failed to post on Facebook');
 
