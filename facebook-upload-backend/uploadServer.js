@@ -836,32 +836,37 @@ const uploadVideo = async (pageId, accessToken, fileUrl, caption) => {
     return { media_fbid: result.id }; // 'media_fbid' for video
 };
 
-// Image Upload Implementation (Fix to accept multiple formats)
-const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
-    const formData = new FormData();
+// Helper function to check if the URL corresponds to a valid image type
+const isValidImageType = (url) => {
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
+    return validExtensions.some(ext => url.toLowerCase().endsWith(ext));
+};
 
-    // Check if the file URL is an accessible image.
-    if (!fileUrl || !fileUrl.startsWith("http")) {
-        throw new Error("Invalid or missing image URL.");
+const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
+    // Ensure the URL ends with a valid image extension
+    if (!fileUrl || !isValidImageType(fileUrl)) {
+        throw new Error("Invalid image file type. Only .jpg, .jpeg, .png, .gif, and .bmp are allowed.");
     }
 
-    formData.append('url', fileUrl);
+    console.log("Uploading image with URL:", fileUrl);
+
+    const formData = new FormData();
+    formData.append('url', fileUrl);  // Add the image URL
     formData.append('access_token', accessToken);
     if (caption) formData.append('caption', caption);
 
     const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
-    // Debugging to check if the URL is correct
-    console.log("Uploading image with URL:", fileUrl);
-
     try {
         const response = await fetch(url, { method: 'POST', body: formData });
         const result = await response.json();
 
-        // Check for Facebook API errors
-        if (!response.ok) throw new Error(result.error.message || 'Failed to upload image');
+        if (!response.ok) {
+            console.error("Facebook API Error:", result.error);
+            throw new Error(result.error.message || 'Failed to upload image');
+        }
 
-        // Return the media_fbid (Facebook media ID) so it can be attached to the post
+        console.log("Image uploaded successfully. Result:", result);
         return { media_fbid: result.id };
     } catch (error) {
         console.error("Error uploading image:", error.message);
