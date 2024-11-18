@@ -833,21 +833,22 @@ const uploadVideo = async (pageId, accessToken, fileUrl, caption) => {
     const result = await response.json();
 
     if (!response.ok) throw new Error(result.error.message || 'Failed to upload video');
-    return { media_fbid: result.id };
+    return { media_fbid: result.id }; // Use 'media_fbid' for consistency
 };
 
 // Image Upload Implementation
-const uploadImage = async (pageId, accessToken, fileUrl) => {
+const uploadImage = async (pageId, accessToken, fileUrl, caption) => {
     const formData = new FormData();
     formData.append('url', fileUrl);
     formData.append('access_token', accessToken);
+    if (caption) formData.append('caption', caption);
 
     const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
     const response = await fetch(url, { method: 'POST', body: formData });
     const result = await response.json();
 
     if (!response.ok) throw new Error(result.error.message || 'Failed to upload image');
-    return { media_fbid: result.id };
+    return { media_fbid: result.id }; // 'media_fbid' for images as well
 };
 
 // Upload Media and Post to Facebook Route
@@ -859,27 +860,28 @@ router.post('/upload', async (req, res) => {
     }
 
     try {
-        // Upload media items first and collect their media IDs
+        // Upload all media items and collect their media IDs
         const uploadPromises = mediaUrls.map(async (url) => {
             if (isVideo(url)) {
                 return uploadVideo(pageId, accessToken, url, caption);
             } else {
-                return uploadImage(pageId, accessToken, url);
+                return uploadImage(pageId, accessToken, url, caption);
             }
         });
 
-        const results = await Promise.all(uploadPromises);
+        // Wait for all uploads to finish and get their media IDs
+        const uploadedMedia = await Promise.all(uploadPromises);
 
-        // Prepare `attached_media` for the post
-        const attachedMedia = results.map(result => ({
-            media_fbid: result.video_id || result.media_fbid,
+        // Prepare the attached_media array for the Facebook post
+        const attachedMedia = uploadedMedia.map(item => ({
+            media_fbid: item.media_fbid
         }));
 
-        // Post the feed with attached media
+        // Post the media in a single feed
         const postData = {
             access_token: accessToken,
-            attached_media: JSON.stringify(attachedMedia),
-            message: caption || '', // Caption is optional
+            attached_media: JSON.stringify(attachedMedia),  // Attach all media
+            message: caption || '',  // Optional caption
         };
 
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
@@ -888,6 +890,7 @@ router.post('/upload', async (req, res) => {
         });
 
         const postResult = await postResponse.json();
+
         if (!postResponse.ok) throw new Error(postResult.error.message || 'Failed to post on Facebook');
 
         res.json({ success: true, postId: postResult.id });
