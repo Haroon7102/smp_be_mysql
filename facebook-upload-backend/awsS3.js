@@ -41,7 +41,7 @@ router.post('/upload-to-s3', upload.array('files', 10), async (req, res) => {
                 Key: `uploads/${Date.now()}_${file.originalname}`,
                 Body: file.buffer,
                 ContentType: file.mimetype,
-                ACL: 'public-read'
+                // ACL: 'public-read'
             };
 
             // Create a new command for uploading
