@@ -965,37 +965,76 @@ const postToFacebook = async (pageId, accessToken, attachedMedia, caption, type)
 router.post('/upload', async (req, res) => {
     const { accessToken, pageId, caption, mediaUrls, type } = req.body;
 
+    // Validate request
     if (!accessToken || !pageId || !mediaUrls || mediaUrls.length === 0) {
         return res.status(400).json({ error: 'Missing required fields: accessToken, pageId, mediaUrls' });
     }
 
     try {
-        const attachedMedia = [];
+        // Determine type: Default to "feed" if not provided
+        const postType = type || 'feed';
 
-        for (const url of mediaUrls) {
-            const isVideoFile = isVideo(url);
-
-            if (type === 'reel' && isVideoFile && mediaUrls.length === 1) {
-                const result = await uploadVideoResumably(pageId, accessToken, url, caption);
-                attachedMedia.push({ media_fbid: result.video_id });
-                break;
-            } else if (type === 'feed') {
-                if (isVideoFile && mediaUrls.length === 1) {
-                    const result = await uploadVideoResumably(pageId, accessToken, url, caption);
-                    attachedMedia.push({ media_fbid: result.video_id });
-                } else if (!isVideoFile) {
-                    const result = await uploadImage(pageId, accessToken, url, caption);
-                    attachedMedia.push({ media_fbid: result.media_fbid });
-                }
-            }
+        // Enforce rules based on type
+        if (postType === 'reel' && mediaUrls.length > 1) {
+            return res.status(400).json({ error: 'Only one video is allowed for a reel.' });
+        }
+        if (postType === 'video' && mediaUrls.length > 1) {
+            return res.status(400).json({ error: 'Only one video is allowed for video posts.' });
         }
 
-        const postId = await postToFacebook(pageId, accessToken, attachedMedia, caption, type || 'feed');
-        res.json({ success: true, postId });
+        // Process media uploads
+        const uploadPromises = mediaUrls.map(async (url) => {
+            if (isVideo(url)) {
+                if (postType === 'feed' || postType === 'video') {
+                    return uploadVideoResumably(pageId, accessToken, url, caption);
+                } else {
+                    throw new Error('Reels can only contain one video.');
+                }
+            } else {
+                return uploadImage(pageId, accessToken, url, caption);
+            }
+        });
+
+        const uploadResults = await Promise.all(uploadPromises);
+
+        // Prepare attached media IDs
+        const attachedMedia = uploadResults.map((result) => {
+            return result.video_id
+                ? { media_fbid: result.video_id }
+                : { media_fbid: result.media_fbid };
+        });
+
+        // Create post based on type
+        let postEndpoint = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+        if (postType === 'reel') {
+            postEndpoint = `https://graph.facebook.com/v21.0/${pageId}/reels`;
+        }
+
+        const postData = {
+            access_token: accessToken,
+            attached_media: JSON.stringify(attachedMedia),
+            message: caption || '', // Caption is optional
+        };
+
+        const postResponse = await fetch(postEndpoint, {
+            method: 'POST',
+            body: new URLSearchParams(postData),
+        });
+
+        const postResult = await postResponse.json();
+
+        // Check for success
+        if (!postResponse.ok) {
+            console.error("Facebook API Error:", postResult.error);
+            throw new Error(postResult.error.message || 'Failed to post on Facebook');
+        }
+
+        res.json({ success: true, postId: postResult.id });
     } catch (error) {
-        console.error('Error during upload:', error.message);
+        console.error("Error during upload:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
+
 
 module.exports = router;
