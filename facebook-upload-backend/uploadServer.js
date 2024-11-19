@@ -902,6 +902,9 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
+const multer = require('multer');
+const upload = multer(); // Multer instance to handle multipart/form-data
+
 const cors = require('cors');
 require('dotenv').config();
 
@@ -972,23 +975,30 @@ const postToFacebook = async ({ pageId, accessToken, postType, caption, mediaUrl
 };
 
 // Route to handle Facebook posts
-router.post('/upload', async (req, res) => {
+router.post('/upload', upload.array('files'), async (req, res) => {
     try {
-        const { pageId, accessToken, postType, caption, mediaUrls } = req.body;
+        const { caption, pageId, accessToken, postType } = req.body; // Fields from FormData
+        const files = req.files; // Files from FormData
 
         // Validate required fields
         if (!pageId || !accessToken || !postType) {
             return res.status(400).json({ error: 'Page ID, Access Token, and Post Type are required.' });
         }
+
+        // Extract media URLs from uploaded files
+        const mediaUrls = files.map(file => {
+            // Assuming the frontend sends valid file URLs directly or uploads them to AWS S3
+            const mediaUrl = file.originalname; // Placeholder for actual URL handling logic
+            console.log(`File processed: ${mediaUrl}`);
+            return mediaUrl;
+        });
+
         if (!mediaUrls.length && !caption) {
             return res.status(400).json({ error: 'Either media URLs or a caption must be provided.' });
         }
 
-        // Ensure only the first media URL is used for non-feed post types
-        const validMediaUrls = postType === 'feed' ? mediaUrls : mediaUrls.slice(0, 1);
-
-        console.log("Posting data:", { pageId, postType, caption, mediaUrls: validMediaUrls });
-        const response = await postToFacebook({ pageId, accessToken, postType, caption, mediaUrls: validMediaUrls });
+        console.log("Posting data:", { pageId, postType, caption, mediaUrls });
+        const response = await postToFacebook({ pageId, accessToken, postType, caption, mediaUrls });
 
         if (response.error) {
             throw new Error(response.error.message || "Facebook API error.");
