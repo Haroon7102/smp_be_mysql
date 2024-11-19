@@ -126,7 +126,7 @@ router.use(cors({
     credentials: true
 }));
 
-// Function to post a message to Facebook
+// Function to post a message to Facebook (for general post)
 const postMessageToFacebook = async (pageId, accessToken, message) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
@@ -148,32 +148,98 @@ const postMessageToFacebook = async (pageId, accessToken, message) => {
     }
 };
 
-// Function to upload media (photos and videos)
-const uploadMedia = async (file, pageId, accessToken) => {
+// Function to upload a video to Facebook
+const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename, caption) => {
     const formData = new FormData();
-    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-    formData.append('published', 'false'); // Media will not be published immediately
+    formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
+    formData.append('published', 'false');
 
-    const url = file.mimetype.startsWith('video/')
-        ? `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`
-        : `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`;
+    try {
+        const videoResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        });
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
+        const videoResult = await videoResponse.json();
+        if (!videoResponse.ok) {
+            throw new Error(`Video upload failed: ${videoResult.error.message}`);
+        }
+
+        // Now create a post with video ID
+        const postData = {
+            message: caption,
+            attached_media: JSON.stringify([{ media_fbid: videoResult.id }]),
+            access_token: accessToken,
+        };
+
+        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+            method: 'POST',
+            body: new URLSearchParams(postData),
+        });
+
+        const postResult = await postResponse.json();
+        if (!postResponse.ok) {
+            throw new Error(`Failed to create post with video: ${postResult.error.message}`);
+        }
+
+        return postResult;
+    } catch (error) {
+        console.error('Error uploading video to Facebook:', error);
+        throw error;
+    }
+};
+
+// Function to upload photos to Facebook
+const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
+    const photoIds = [];
+
+    // Upload photos in parallel using Promise.all
+    const uploadPromises = files.map(file => {
+        const formData = new FormData();
+        formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+        formData.append('published', 'false');
+
+        return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (!result.id) {
+                    throw new Error(`Photo upload failed: ${result.error.message}`);
+                }
+                photoIds.push({ media_fbid: result.id });
+            });
     });
 
-    const result = await response.json();
-    if (!result.id) {
-        throw new Error(`Media upload failed: ${result.error.message}`);
+    // Await all uploads
+    await Promise.all(uploadPromises);
+
+    // Create a single post attaching all photos
+    const postData = {
+        attached_media: JSON.stringify(photoIds),
+        access_token: accessToken,
+    };
+    if (caption) postData.message = caption;
+
+    const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+        method: 'POST',
+        body: new URLSearchParams(postData),
+    });
+
+    const postResult = await postResponse.json();
+    if (!postResponse.ok) {
+        throw new Error(`Failed to create post with photos: ${postResult.error.message}`);
     }
-    return result.id;
+
+    return postResult;
 };
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType } = req.body;  // postType can be Feed, Reels, etc.
+    const { accessToken, pageId, caption, postType } = req.body; // postType will help differentiate between video and image
     const files = req.files;
 
     if (!accessToken || !pageId) {
@@ -181,54 +247,24 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        const mediaIds = [];
+        if (!postType) {
+            return res.status(400).json({ error: 'Post type (video or image) is required.' });
+        }
 
-        if (files && files.length > 0) {
-            // Upload images and videos in parallel
-            const uploadPromises = files.map(file => {
-                return uploadMedia(file, pageId, accessToken)
-                    .then(mediaId => {
-                        mediaIds.push({ media_fbid: mediaId });
-                    });
-            });
-
-            // Await all uploads
-            await Promise.all(uploadPromises);
-
-            // Prepare post data
-            const postData = {
-                attached_media: JSON.stringify(mediaIds),
-                access_token: accessToken,
-            };
-
-            // Use the provided post type or default to Feed
-            if (postType === 'Reels') {
-                postData.type = 'video'; // This might be a placeholder, depending on Facebook's API for Reels
-            } else {
-                postData.type = 'feed'; // Default to Feed
+        if (postType === 'video' && files.length > 0) {
+            // Handle video upload
+            const videoFile = files[0];
+            if (videoFile.mimetype !== 'video/mp4') {
+                return res.status(400).json({ error: 'Only mp4 videos are supported.' });
             }
-
-            // Add caption if available
-            if (caption) postData.message = caption;
-
-            // Post the media to Facebook
-            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                method: 'POST',
-                body: new URLSearchParams(postData),
-            });
-
-            const postResult = await postResponse.json();
-            if (!postResponse.ok) {
-                throw new Error(`Failed to create post: ${postResult.error.message}`);
-            }
-
-            res.json({ success: true, postId: postResult.id });
-        } else if (caption) {
-            // Only caption without images/videos
-            const postResult = await postMessageToFacebook(pageId, accessToken, caption);
-            return res.json({ result: postResult });
+            const postResult = await uploadVideoToFacebook(pageId, accessToken, videoFile.buffer, videoFile.originalname, caption);
+            return res.json({ success: true, postId: postResult.id });
+        } else if (postType === 'image' && files.length > 0) {
+            // Handle image upload
+            const postResult = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
+            return res.json({ success: true, postId: postResult.id });
         } else {
-            return res.status(400).json({ error: 'Either files or a caption is required.' });
+            return res.status(400).json({ error: 'Invalid file or post type.' });
         }
     } catch (error) {
         console.error('Error during upload:', error);
@@ -237,6 +273,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 module.exports = router;
+
 
 // _______________________________________________________________.
 
