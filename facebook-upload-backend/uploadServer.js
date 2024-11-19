@@ -238,9 +238,8 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
     return postResult;
 };
 
-// Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, message } = req.body; // postType will help differentiate between video and image
+    const { accessToken, pageId, caption, postType, message } = req.body; // postType differentiates between video and image
     const files = req.files;
 
     if (!accessToken || !pageId) {
@@ -248,41 +247,60 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Send immediate response
+        // Send an immediate response to prevent timeout
         res.status(202).json({ message: 'Upload in progress' });
 
-        // Process upload asynchronously
-        processUpload({ accessToken, pageId, caption, postType, files });
+        // Process the upload asynchronously, pass res along with other params
+        await processUpload({ accessToken, pageId, caption, postType, files, message, res });
     } catch (error) {
         console.error('Error during initial request handling:', error);
     }
 });
-const processUpload = async ({ accessToken, pageId, caption, postType, files }) => {
+
+const processUpload = async ({ accessToken, pageId, caption, postType, files, message, res }) => {
     try {
         if (!postType) {
-            return res.status(400).json({ error: 'Post type (video or image) is required.' });
+            console.error('Post type is required');
+            return; // Exit the function since no response can be sent here
         }
 
         if (postType === 'videos' && files.length > 0) {
             // Handle video upload
             const videoFile = files[0];
             if (videoFile.mimetype !== 'video/mp4') {
-                return res.status(400).json({ error: 'Only mp4 videos are supported.' });
+                console.error('Only mp4 videos are supported.');
+                return;
             }
-            const postResult = await uploadVideoToFacebook(pageId, accessToken, videoFile.buffer, videoFile.originalname, caption);
-            return res.json({ success: true, postId: postResult.id });
+
+            const postResult = await uploadVideoToFacebook(
+                pageId,
+                accessToken,
+                videoFile.buffer,
+                videoFile.originalname,
+                caption
+            );
+            console.log('Video uploaded successfully:', postResult);
+            // If needed, send response here
+            res.json({ success: true, postId: postResult.id });
         } else if (postType === 'feed' && files.length > 0) {
             // Handle image upload
             const postResult = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
-            return res.json({ success: true, postId: postResult.id });
-        } else if (postType === 'feed' && files.length == 0) {
+            console.log('Images uploaded successfully:', postResult);
+            // If needed, send response here
+            res.json({ success: true, postId: postResult.id });
+        } else if (postType === 'feed' && files.length === 0) {
+            // Handle text post
             const postResult = await postMessageToFacebook(pageId, accessToken, message);
-            return res.json({ success: true, postId: postResult.id });
+            console.log('Message posted successfully:', postResult);
+            // If needed, send response here
+            res.json({ success: true, postId: postResult.id });
         } else {
-            return res.status(400).json({ error: 'Invalid file or post type.' });
+            console.error('Invalid file or post type.');
+            res.status(400).json({ error: 'Invalid file or post type.' });
         }
     } catch (error) {
         console.error('Error during background upload processing:', error);
+        res.status(500).json({ error: 'Error during background processing' });
     }
 };
 module.exports = router;
