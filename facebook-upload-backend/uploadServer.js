@@ -248,6 +248,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
+        // Send immediate response
+        res.status(202).json({ message: 'Upload in progress' });
+
+        // Process upload asynchronously
+        processUpload({ accessToken, pageId, caption, postType, files });
+    } catch (error) {
+        console.error('Error during initial request handling:', error);
+    }
+});
+const processUpload = async ({ accessToken, pageId, caption, postType, files }) => {
+    try {
         if (!postType) {
             return res.status(400).json({ error: 'Post type (video or image) is required.' });
         }
@@ -271,11 +282,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             return res.status(400).json({ error: 'Invalid file or post type.' });
         }
     } catch (error) {
-        console.error('Error during upload:', error);
-        res.status(500).json({ error: 'Upload failed', details: error.message });
+        console.error('Error during background upload processing:', error);
     }
-});
-
+};
 module.exports = router;
 
 
