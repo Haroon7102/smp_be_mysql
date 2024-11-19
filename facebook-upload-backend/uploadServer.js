@@ -972,7 +972,7 @@ const postToFacebook = async ({ pageId, accessToken, postType, caption, mediaUrl
 };
 
 // Route to handle Facebook posts
-router.post('/facebook-upload/upload', async (req, res) => {
+router.post('/upload', async (req, res) => {
     try {
         const { pageId, accessToken, postType, caption, mediaUrls } = req.body;
 
