@@ -155,7 +155,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     formData.append('published', 'false');
 
     try {
-        const videoResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
+        const videoResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
             headers: formData.getHeaders(),
@@ -173,7 +173,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
             access_token: accessToken,
         };
 
-        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+        const postResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
@@ -189,6 +189,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
         throw error;
     }
 };
+
 
 // Function to upload photos to Facebook
 const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
@@ -239,7 +240,7 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType } = req.body; // postType will help differentiate between video and image
+    const { accessToken, pageId, caption, postType, message } = req.body; // postType will help differentiate between video and image
     const files = req.files;
 
     if (!accessToken || !pageId) {
