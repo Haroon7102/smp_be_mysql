@@ -898,8 +898,10 @@
 // module.exports = router;
 
 
+
 const express = require('express');
 const fetch = require('node-fetch');
+const FormData = require('form-data');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -908,89 +910,114 @@ const router = express.Router();
 // Middleware Configuration
 router.use(express.json({ limit: '600mb' }));
 router.use(express.urlencoded({ limit: '600mb', extended: true }));
-router.use(
-    cors({
-        origin: 'https://smpfe.netlify.app',
-        methods: ['POST'],
-        credentials: true,
-    })
-);
+router.use(cors({
+    origin: 'https://smpfe.netlify.app',
+    methods: ['POST'],
+    credentials: true,
+}));
 
-// Route for Facebook Post Upload
 router.post('/upload', async (req, res) => {
-    const { caption, pageId, accessToken, postType, mediaUrls = [] } = req.body;
-
-    // Basic Validation
+    const { caption, pageId, accessToken, postType, fileUrl } = req.body;
+    // const mediaUrls = req.body.mediaUrls || []; // URLs of uploaded media from S3
+    const formData = new FormData();
+    formData.append('page_id', pageId);
+    formData.append('url', fileUrl);
+    formData.append('access_token', accessToken);
+    formData.append('post_type', postType);
+    if (caption) formData.append('caption', caption);
     if (!pageId || !accessToken || !postType) {
         return res.status(400).json({ error: 'Page ID, Access Token, and Post Type are required.' });
     }
 
-    if (!mediaUrls.length) {
-        return res.status(400).json({ error: 'Please upload at least one media file.' });
-    }
-
-    try {
-        let apiUrl = '';
-        let payload = {};
-
-        if (postType === 'feed') {
-            // Upload images or videos to feed
-            const mediaAttachments = mediaUrls.map((url) => ({ media_fbid: url })); // Ensure media_fbid is correct
-
-            apiUrl = `https://graph.facebook.com/v20.0/${pageId}/feed`;
-            payload = {
-                message: caption || '', // Add caption if provided
-                attached_media: mediaAttachments,
-                access_token: accessToken,
-            };
-        } else if (postType === 'video') {
-            // Upload a single video
-            if (mediaUrls.length !== 1) {
-                return res.status(400).json({ error: 'Please upload exactly one video for video posts.' });
-            }
-
-            apiUrl = `https://graph.facebook.com/v20.0/${pageId}/videos`;
-            payload = {
-                description: caption || '', // Add caption if provided
-                file_url: mediaUrls[0], // URL of the video
-                access_token: accessToken,
-            };
-        } else if (postType === 'reels') {
-            // Upload a single video as a reel
-            if (mediaUrls.length !== 1) {
-                return res.status(400).json({ error: 'Please upload exactly one video for reels.' });
-            }
-
-            apiUrl = `https://graph.facebook.com/v20.0/${pageId}/reels`;
-            payload = {
-                description: caption || '', // Add caption if provided
-                video_url: mediaUrls[0], // URL of the video
-                access_token: accessToken,
-            };
-        } else {
-            return res.status(400).json({ error: 'Invalid post type.' });
+    if (postType === 'feed') {
+        if (mediaUrls.length === 0) {
+            return res.status(400).json({ error: 'Please upload at least one image or video.' });
         }
 
-        // Make the API request
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+        try {
+            const mediaAttachments = mediaUrls.map((url) => ({
+                media_fbid: url,
+            }));
 
-        const result = await response.json();
+            const response = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: caption || '', // Add caption if provided
+                    attached_media: mediaAttachments,
+                    access_token: accessToken,
+                }),
+            });
 
-        if (!response.ok) {
-            throw new Error(result.error.message || 'Facebook API error.');
+            const result = await response.json();
+
+            if (response.ok) {
+                return res.json({ success: true, postId: result.id });
+            } else {
+                throw new Error(result.error.message);
+            }
+        } catch (error) {
+            return res.status(500).json({ error: `Error posting feed: ${error.message}` });
+        }
+    }
+
+    if (postType === 'video') {
+        if (mediaUrls.length !== 1 || !mediaUrls[0].endsWith('.mp4')) {
+            return res.status(400).json({ error: 'Please upload exactly one video file for video posts.' });
         }
 
-        // Send success response
-        return res.json({ success: true, result });
-    } catch (error) {
-        console.error('Error posting to Facebook:', error.message);
-        return res.status(500).json({ error: `Error posting to Facebook: ${error.message}` });
+        try {
+            const response = await fetch(`https://graph.facebook.com/v20.0/${pageId}/videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: caption || '', // Add caption if provided
+                    file_url: mediaUrls[0],
+                    access_token: accessToken,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                return res.json({ success: true, videoId: result.id });
+            } else {
+                throw new Error(result.error.message);
+            }
+        } catch (error) {
+            return res.status(500).json({ error: `Error posting video: ${error.message}` });
+        }
     }
+
+    if (postType === 'reels') {
+        if (mediaUrls.length !== 1 || !mediaUrls[0].endsWith('.mp4')) {
+            return res.status(400).json({ error: 'Please upload exactly one video file for reels.' });
+        }
+
+        try {
+            const response = await fetch(`https://graph.facebook.com/v20.0/${pageId}/reels`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: caption || '', // Add caption if provided
+                    video_url: mediaUrls[0],
+                    access_token: accessToken,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                return res.json({ success: true, reelId: result.id });
+            } else {
+                throw new Error(result.error.message);
+            }
+        } catch (error) {
+            return res.status(500).json({ error: `Error posting reel: ${error.message}` });
+        }
+    }
+
+    return res.status(400).json({ error: 'Invalid post type.' });
 });
 
 module.exports = router;
-
