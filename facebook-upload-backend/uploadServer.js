@@ -251,7 +251,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             return res.status(400).json({ error: 'Post type (video or image) is required.' });
         }
 
-        if (postType === 'video' && files.length > 0) {
+        if (postType === 'videos' && files.length > 0) {
             // Handle video upload
             const videoFile = files[0];
             if (videoFile.mimetype !== 'video/mp4') {
@@ -259,9 +259,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             }
             const postResult = await uploadVideoToFacebook(pageId, accessToken, videoFile.buffer, videoFile.originalname, caption);
             return res.json({ success: true, postId: postResult.id });
-        } else if (postType === 'image' && files.length > 0) {
+        } else if (postType === 'feed' && files.length > 0) {
             // Handle image upload
             const postResult = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
+            return res.json({ success: true, postId: postResult.id });
+        } else if (postType === 'feed' && files.length == 0) {
+            const postResult = await postMessageToFacebook(pageId, accessToken, message);
             return res.json({ success: true, postId: postResult.id });
         } else {
             return res.status(400).json({ error: 'Invalid file or post type.' });
