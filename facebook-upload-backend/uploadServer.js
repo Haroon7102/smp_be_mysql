@@ -173,7 +173,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
             access_token: accessToken,
         };
 
-        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+        const postResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
