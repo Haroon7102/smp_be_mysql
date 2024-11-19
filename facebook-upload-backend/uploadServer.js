@@ -155,7 +155,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     formData.append('published', 'false');
 
     try {
-        const videoResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+        const videoResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
             method: 'POST',
             body: formData,
             headers: formData.getHeaders(),
@@ -173,7 +173,7 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
             access_token: accessToken,
         };
 
-        const postResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams(postData),
         });
