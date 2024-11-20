@@ -243,6 +243,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, message } = req.body; // `postType` differentiates video or image
     const files = req.files;
 
+    // Log incoming request details
+    console.log('Upload request received');
+    console.log('Request body:', req.body);
+    console.log('Uploaded files:', files);
+
     // Validation for required fields
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
@@ -264,18 +269,21 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
 // Process upload function
 const processUpload = async ({ accessToken, pageId, caption, postType, files, message }) => {
+    console.log('Entered processUpload function');
     console.log('Processing upload:', { postType, files: files?.length });
 
     try {
         let result;
 
         if (!postType) {
+            console.error('Post type is required.');
             throw new Error('Post type is required.');
         }
 
         // Handle video uploads
         if (postType === 'videos' && files.length > 0) {
             const videoFile = files[0]; // Assume single video file
+            console.log('Video upload detected. File details:', videoFile);
             if (videoFile.mimetype !== 'video/mp4') {
                 throw new Error('Only MP4 videos are supported.');
             }
@@ -291,16 +299,19 @@ const processUpload = async ({ accessToken, pageId, caption, postType, files, me
         }
         // Handle photo uploads
         else if (postType === 'feed' && files.length > 0) {
+            console.log('Photo upload detected. Number of files:', files.length);
             result = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
             console.log('Photos uploaded successfully:', result);
         }
         // Handle text-only posts
         else if (postType === 'feed' && files.length === 0) {
+            console.log('Text post detected. Message:', message);
             result = await postMessageToFacebook(pageId, accessToken, message);
             console.log('Message posted successfully:', result);
         }
         // Invalid post type or input
         else {
+            console.error('Invalid file or post type. PostType:', postType, 'Files:', files);
             throw new Error('Invalid file or post type.');
         }
 
