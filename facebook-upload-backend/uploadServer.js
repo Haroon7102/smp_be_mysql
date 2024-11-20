@@ -238,71 +238,76 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
     return postResult;
 };
 
+// Router for handling uploads
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, message } = req.body; // postType differentiates between video and image
+    const { accessToken, pageId, caption, postType, message } = req.body; // `postType` differentiates video or image
     const files = req.files;
 
+    // Validation for required fields
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     try {
-        // Send an immediate response to prevent timeout
+        console.log('Upload request received:', { pageId, postType, filesLength: files?.length });
+
+        // Send an immediate response to prevent request timeout
         res.status(202).json({ message: 'Upload in progress' });
 
-        // Process the upload asynchronously, pass res along with other params
-        await processUpload({ accessToken, pageId, caption, postType, files, message, res });
-        console.log('process upload is called');
+        // Process the upload asynchronously
+        const result = await processUpload({ accessToken, pageId, caption, postType, files, message });
+        console.log('Upload completed successfully:', result);
     } catch (error) {
-        console.error('Error during initial request handling:', error);
+        console.error('Error during initial request handling:', error.message);
     }
 });
 
-const processUpload = async ({ accessToken, pageId, caption, postType, files, message, res }) => {
-    console.log('process upload runs');
+// Process upload function
+const processUpload = async ({ accessToken, pageId, caption, postType, files, message }) => {
+    console.log('Processing upload:', { postType, files: files?.length });
+
     try {
+        let result;
+
         if (!postType) {
-            console.error('Post type is required');
-            return; // Exit the function since no response can be sent here
+            throw new Error('Post type is required.');
         }
 
+        // Handle video uploads
         if (postType === 'videos' && files.length > 0) {
-            // Handle video upload
-            const videoFile = files[0];
+            const videoFile = files[0]; // Assume single video file
             if (videoFile.mimetype !== 'video/mp4') {
-                console.error('Only mp4 videos are supported.');
-                return;
+                throw new Error('Only MP4 videos are supported.');
             }
 
-            const postResult = await uploadVideoToFacebook(
+            result = await uploadVideoToFacebook(
                 pageId,
                 accessToken,
                 videoFile.buffer,
                 videoFile.originalname,
                 caption
             );
-            console.log('Video uploaded successfully:', postResult);
-            // If needed, send response here
-            res.json({ success: true, postId: postResult.id });
-        } else if (postType === 'feed' && files.length > 0) {
-            // Handle image upload
-            const postResult = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
-            console.log('Images uploaded successfully:', postResult);
-            // If needed, send response here
-            res.json({ success: true, postId: postResult.id });
-        } else if (postType === 'feed' && files.length === 0) {
-            // Handle text post
-            const postResult = await postMessageToFacebook(pageId, accessToken, message);
-            console.log('Message posted successfully:', postResult);
-            // If needed, send response here
-            res.json({ success: true, postId: postResult.id });
-        } else {
-            console.error('Invalid file or post type.');
-            res.status(400).json({ error: 'Invalid file or post type.' });
+            console.log('Video uploaded successfully:', result);
         }
+        // Handle photo uploads
+        else if (postType === 'feed' && files.length > 0) {
+            result = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
+            console.log('Photos uploaded successfully:', result);
+        }
+        // Handle text-only posts
+        else if (postType === 'feed' && files.length === 0) {
+            result = await postMessageToFacebook(pageId, accessToken, message);
+            console.log('Message posted successfully:', result);
+        }
+        // Invalid post type or input
+        else {
+            throw new Error('Invalid file or post type.');
+        }
+
+        return result;
     } catch (error) {
-        console.error('Error during background upload processing:', error);
-        res.status(500).json({ error: 'Error during background processing' });
+        console.error('Error during upload processing:', error.message);
+        throw error;
     }
 };
 module.exports = router;
