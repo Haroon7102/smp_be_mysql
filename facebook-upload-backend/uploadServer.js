@@ -201,33 +201,44 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
     console.log('Access Token:', accessToken);
     console.log('Number of files:', files.length);
 
-    const results = [];
+    try {
+        // Upload all files using Promise.all to ensure proper handling
+        const uploadPromises = files.map((file, index) => {
+            console.log(`Processing file ${index + 1}/${files.length}: ${file.originalname}`);
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        console.log(`Processing file ${i + 1}/${files.length}:`, file.originalname);
-
-        try {
             const form = new FormData();
             form.append('access_token', accessToken);
-            form.append('caption', caption || '');
+            form.append('caption', caption || ''); // Default caption if none provided
             form.append('source', file.buffer, { filename: file.originalname });
 
-            const response = await axios.post(
+            return axios.post(
                 `https://graph.facebook.com/${pageId}/photos`,
                 form,
-                { headers: { ...form.getHeaders() } }
-            );
+                {
+                    headers: form.getHeaders(), // Ensure correct multipart headers
+                }
+            )
+                .then(response => {
+                    console.log(`File ${file.originalname} uploaded successfully. Response:`, response.data);
+                    return response.data;
+                })
+                .catch(err => {
+                    console.error(`Error uploading file ${file.originalname}:`, err.message);
+                    throw new Error(`File ${file.originalname} upload failed: ${err.response?.data?.error?.message || err.message}`);
+                });
+        });
 
-            console.log(`File ${i + 1} uploaded successfully:`, response.data);
-            results.push(response.data);
-        } catch (error) {
-            console.error(`Error uploading file ${i + 1}:`, error.message);
-        }
+        // Wait for all uploads to finish
+        const results = await Promise.all(uploadPromises);
+        console.log('All files uploaded successfully:', results);
+
+        return { success: true, message: 'Photos uploaded successfully', results };
+    } catch (error) {
+        console.error('Error during photo upload:', error.message);
+        throw error; // Propagate error back for further handling
     }
-
-    return { success: true, message: 'Photos processed', results };
 };
+
 
 //    
 
