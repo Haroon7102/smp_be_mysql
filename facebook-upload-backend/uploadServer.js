@@ -218,9 +218,10 @@ const uploadPhotosToContainer = async (pageId, accessToken, files) => {
             throw new Error(`Upload failed for ${file.originalname}: ${err.response?.data?.error?.message || err.message}`);
         }
     }
-
+    console.log('All media IDs:', mediaIds);
     return mediaIds;
 };
+
 const createPostWithMedia = async (pageId, accessToken, mediaIds, caption) => {
     try {
         console.log('Creating a post with media...');
@@ -232,8 +233,8 @@ const createPostWithMedia = async (pageId, accessToken, mediaIds, caption) => {
             `https://graph.facebook.com/${pageId}/feed`,
             {
                 access_token: accessToken,
-                caption: caption || 'Here are my photos!',
-                attached_media: attachedMedia,
+                message: caption || 'Here are my photos!',
+                attached_media: JSON.stringify(attachedMedia), // Convert to JSON string
             }
         );
 
@@ -244,11 +245,16 @@ const createPostWithMedia = async (pageId, accessToken, mediaIds, caption) => {
         throw new Error(`Post creation failed: ${err.response?.data?.error?.message || err.message}`);
     }
 };
+
 const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
     try {
         // Step 1: Upload photos and get media IDs
         const mediaIds = await uploadPhotosToContainer(pageId, accessToken, files);
         console.log('Media IDs:', mediaIds);
+
+        if (mediaIds.length === 0) {
+            throw new Error('No media IDs generated; ensure files are uploaded correctly.');
+        }
 
         // Step 2: Create a post with the media IDs
         const postResponse = await createPostWithMedia(pageId, accessToken, mediaIds, caption);
@@ -259,6 +265,7 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
         throw err; // Propagate the error for higher-level handling
     }
 };
+
 
 
 // Function to upload photos to Facebook
