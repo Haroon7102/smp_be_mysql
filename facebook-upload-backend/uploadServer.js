@@ -201,38 +201,35 @@ const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
     console.log('Access Token:', accessToken);
     console.log('Number of files:', files.length);
 
-    try {
-        // Iterate through each file to upload to Facebook
-        for (let file of files) {
-            console.log('Uploading file:', file.originalname);
+    const results = [];
 
-            // Prepare FormData for the photo upload
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`Processing file ${i + 1}/${files.length}:`, file.originalname);
+
+        try {
             const form = new FormData();
             form.append('access_token', accessToken);
-            form.append('caption', caption || '');  // If no caption, use empty string
+            form.append('caption', caption || '');
             form.append('source', file.buffer, { filename: file.originalname });
 
-            // Upload photo to Facebook
             const response = await axios.post(
                 `https://graph.facebook.com/${pageId}/photos`,
                 form,
-                {
-                    headers: {
-                        ...form.getHeaders()  // Ensure proper headers for multipart/form-data
-                    }
-                }
+                { headers: { ...form.getHeaders() } }
             );
 
-            // Log response for the uploaded file
-            console.log('Upload response for file:', file.originalname, response.data);
+            console.log(`File ${i + 1} uploaded successfully:`, response.data);
+            results.push(response.data);
+        } catch (error) {
+            console.error(`Error uploading file ${i + 1}:`, error.message);
         }
-
-        return { success: true, message: 'Photos uploaded successfully' };
-    } catch (error) {
-        console.error('Error uploading photos:', error.message);
-        throw error; // Propagate error back for further handling
     }
+
+    return { success: true, message: 'Photos processed', results };
 };
+
+//    
 
 
 // Router for handling uploads
