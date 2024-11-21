@@ -192,21 +192,22 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
 };
 
 
+
+
 async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
-    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
+    const url = `https://graph.facebook.com/v17.0/${pageId}/photos`;
+
+    const formData = new FormData();
+    formData.append('access_token', accessToken);
+    formData.append('caption', caption);
+    formData.append('source', photoBuffer, {
+        filename: 'photo.jpg', // Optional: Specify the filename
+        contentType: 'image/jpeg', // Ensure the correct MIME type
+    });
 
     try {
-        // Create form data and append the necessary parameters
-        const form = new FormData();
-        form.append('caption', caption);
-        form.append('access_token', accessToken);
-        form.append('source', photoBuffer);  // Attach the buffer as a file
-
-        // Post the data as 'multipart/form-data'
-        const response = await axios.post(url, form, {
-            headers: {
-                ...form.getHeaders(),  // Automatically set correct headers for multipart form
-            },
+        const response = await axios.post(url, formData, {
+            headers: formData.getHeaders(),
         });
 
         console.log('Photo upload response:', response.data);
@@ -216,12 +217,10 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
         throw error;
     }
 }
-////this si s
+
 async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
     for (const file of files) {
         const photoBuffer = file.buffer; // Buffer from uploaded file
-        console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes, mimeType: ${file.mimetype}`);
-
         try {
             const result = await uploadPhotoToFacebook({
                 accessToken,
@@ -235,6 +234,7 @@ async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
         }
     }
 }
+
 
 
 
