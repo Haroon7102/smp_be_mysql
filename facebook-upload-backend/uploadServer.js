@@ -191,65 +191,40 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     }
 };
 
-const uploadPhotosToFacebook = async (pageId, accessToken, files, caption) => {
+async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
+    const url = `https://graph.facebook.com/v17.0/${pageId}/photos`;
+
     try {
-        const photoIds = [];
+        const response = await axios.post(url, {
+            caption: caption,
+            access_token: accessToken,
+            source: photoBuffer.toString('base64'),
+        });
 
-        if (files && files.length > 0) {
-            // Upload images in parallel using Promise.all
-            const uploadPromises = files.map(file => {
-                const formData = new FormData();
-                formData.append('source', file.buffer, {
-                    filename: file.originalname,
-                    contentType: file.mimetype,
-                });
-                formData.append('published', 'false');
-
-                return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
-                    method: 'POST',
-                    body: formData,
-                    headers: formData.getHeaders(),
-                })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (!result.id) {
-                            throw new Error(`Photo upload failed: ${result.error.message}`);
-                        }
-                        photoIds.push({ media_fbid: result.id });
-                    });
-            });
-
-            // Await all uploads
-            await Promise.all(uploadPromises);
-
-            // Create a single post attaching all photos
-            const postData = {
-                attached_media: JSON.stringify(photoIds),
-                access_token: accessToken,
-            };
-            if (caption) postData.message = caption;
-
-            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                method: 'POST',
-                body: new URLSearchParams(postData),
-            });
-
-            const postResult = await postResponse.json();
-            if (!postResponse.ok) {
-                throw new Error(`Failed to create post: ${postResult.error.message}`);
-            }
-
-            console.log('Post created successfully:', postResult);
-            return { success: true, message: 'Post created successfully', postId: postResult.id };
-        } else {
-            throw new Error('No files provided for upload.');
-        }
+        console.log('Photo upload response:', response.data);
+        return response.data; // Contains photo ID if successful
     } catch (error) {
-        console.error('Error during photo upload:', error.message);
+        console.error('Error uploading photo:', error.response?.data || error.message);
         throw error;
     }
-};
+}
 
+async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
+    for (const file of files) {
+        const photoBuffer = file.buffer; // Buffer from uploaded file
+        try {
+            const result = await uploadPhotoToFacebook({
+                accessToken,
+                pageId,
+                photoBuffer,
+                caption,
+            });
+            console.log('Uploaded photo ID:', result.id);
+        } catch (err) {
+            console.error('Failed to upload photo:', file.originalname, err.message);
+        }
+    }
+}
 
 
 
