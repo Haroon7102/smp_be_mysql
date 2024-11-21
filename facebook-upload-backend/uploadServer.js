@@ -219,21 +219,31 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
 }
 
 async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
+    console.log(`Starting upload of ${files.length} photos...`);
+
     for (const file of files) {
-        const photoBuffer = file.buffer; // Buffer from uploaded file
         try {
+            const photoBuffer = file.buffer; // Get the buffer of the file
+
+            console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes`);
             const result = await uploadPhotoToFacebook({
                 accessToken,
                 pageId,
                 photoBuffer,
                 caption,
             });
-            console.log('Uploaded photo ID:', result.id);
+
+            console.log(`Uploaded photo ID: ${result.id} for ${file.originalname}`);
         } catch (err) {
-            console.error('Failed to upload photo:', file.originalname, err.message);
+            console.error(
+                `Failed to upload photo: ${file.originalname}. Error: ${err.message}`
+            );
         }
     }
+
+    console.log('Finished uploading all photos.');
 }
+
 
 
 
