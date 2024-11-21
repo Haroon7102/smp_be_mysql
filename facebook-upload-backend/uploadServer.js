@@ -192,6 +192,10 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
 };
 
 async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
+    if (!photoBuffer || photoBuffer.length === 0) {
+        throw new Error('Empty photo buffer. Cannot upload empty photo.');
+    }
+
     const url = `https://graph.facebook.com/v17.0/${pageId}/photos`;
 
     try {
@@ -212,6 +216,9 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
 async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
     for (const file of files) {
         const photoBuffer = file.buffer; // Buffer from uploaded file
+
+        console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes, mimeType: ${file.mimetype}`);
+
         try {
             const result = await uploadPhotoToFacebook({
                 accessToken,
@@ -225,6 +232,7 @@ async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
         }
     }
 }
+
 
 
 
