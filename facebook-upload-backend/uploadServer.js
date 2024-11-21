@@ -216,7 +216,7 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
         throw error;
     }
 }
-
+////this si s
 async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
     for (const file of files) {
         const photoBuffer = file.buffer; // Buffer from uploaded file
