@@ -192,18 +192,13 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
 };
 
 
-
-
 async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
     const url = `https://graph.facebook.com/v17.0/${pageId}/photos`;
 
     const formData = new FormData();
     formData.append('access_token', accessToken);
-    formData.append('caption', caption);
-    formData.append('source', photoBuffer, {
-        filename: 'photo.jpg', // Optional: Specify the filename
-        contentType: 'image/jpeg', // Ensure the correct MIME type
-    });
+    formData.append('caption', caption || ''); // Ensure caption is optional
+    formData.append('source', photoBuffer, 'photo.jpg'); // Use default filename
 
     try {
         const response = await axios.post(url, formData, {
@@ -223,13 +218,18 @@ async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
 
     for (const file of files) {
         try {
-            const photoBuffer = file.buffer; // Get the buffer of the file
+            // Validate file properties
+            if (!file.buffer || file.buffer.length === 0) {
+                console.warn(`Skipping invalid or empty file: ${file.originalname}`);
+                continue;
+            }
 
             console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes`);
+
             const result = await uploadPhotoToFacebook({
                 accessToken,
                 pageId,
-                photoBuffer,
+                photoBuffer: file.buffer,
                 caption,
             });
 
@@ -239,6 +239,9 @@ async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
                 `Failed to upload photo: ${file.originalname}. Error: ${err.message}`
             );
         }
+
+        // Add a small delay to prevent API rate limits
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
     }
 
     console.log('Finished uploading all photos.');
