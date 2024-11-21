@@ -364,10 +364,13 @@ const processUpload = async ({ accessToken, pageId, caption, postType, files, me
             console.log('Video uploaded successfully:', result);
         }
         // Handle photo uploads
-        else if (postType === 'feed' && files.length > 0) {
-            console.log('Photo upload detected. Number of files:', files.length);
-            result = await uploadPhotosToFacebook(pageId, accessToken, files, caption);
-            console.log('Photos uploaded successfully:', result);
+        else if (postType === 'feed') {
+            try {
+                await uploadMultiplePhotos({ accessToken, pageId, files, caption });
+                console.log('All photos uploaded successfully!');
+            } catch (error) {
+                console.error('Error during upload process:', error.message);
+            }
         }
         // Handle text-only posts
         else if (postType === 'feed' && files.length === 0) {
