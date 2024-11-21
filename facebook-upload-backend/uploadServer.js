@@ -191,18 +191,22 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     }
 };
 
-async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
-    if (!photoBuffer || photoBuffer.length === 0) {
-        throw new Error('Empty photo buffer. Cannot upload empty photo.');
-    }
 
-    const url = `https://graph.facebook.com/v17.0/${pageId}/photos`;
+async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
+    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
     try {
-        const response = await axios.post(url, {
-            caption: caption,
-            access_token: accessToken,
-            source: photoBuffer.toString('base64'),
+        // Create form data and append the necessary parameters
+        const form = new FormData();
+        form.append('caption', caption);
+        form.append('access_token', accessToken);
+        form.append('source', photoBuffer);  // Attach the buffer as a file
+
+        // Post the data as 'multipart/form-data'
+        const response = await axios.post(url, form, {
+            headers: {
+                ...form.getHeaders(),  // Automatically set correct headers for multipart form
+            },
         });
 
         console.log('Photo upload response:', response.data);
@@ -216,7 +220,6 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
 async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
     for (const file of files) {
         const photoBuffer = file.buffer; // Buffer from uploaded file
-
         console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes, mimeType: ${file.mimetype}`);
 
         try {
@@ -232,6 +235,7 @@ async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
         }
     }
 }
+
 
 
 
