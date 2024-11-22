@@ -213,38 +213,55 @@ async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption
     }
 }
 
-async function uploadMultiplePhotos({ accessToken, pageId, files, caption }) {
-    console.log(`Starting upload of ${files.length} photos...`);
+async function uploadMultiplePhotosAndGetMediaIds({ accessToken, pageId, files }) {
+    const mediaIds = [];
 
     for (const file of files) {
         try {
-            // Validate file properties
-            if (!file.buffer || file.buffer.length === 0) {
-                console.warn(`Skipping invalid or empty file: ${file.originalname}`);
-                continue;
-            }
-
             console.log(`Uploading photo: ${file.originalname}, size: ${file.size} bytes`);
 
-            const result = await uploadPhotoToFacebook({
+            const mediaId = await uploadPhotoToFacebook({
                 accessToken,
                 pageId,
                 photoBuffer: file.buffer,
-                caption,
+                caption: '', // Add caption if needed
             });
 
-            console.log(`Uploaded photo ID: ${result.id} for ${file.originalname}`);
+            mediaIds.push(mediaId);
+            console.log(`Uploaded photo ID: ${mediaId} for ${file.originalname}`);
         } catch (err) {
-            console.error(
-                `Failed to upload photo: ${file.originalname}. Error: ${err.message}`
-            );
+            console.error(`Failed to upload photo: ${file.originalname}. Error: ${err.message}`);
         }
 
-        // Add a small delay to prevent API rate limits
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
+        // Add a delay to prevent hitting rate limits
+        await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    console.log('Finished uploading all photos.');
+    console.log('Finished uploading all photos. Media IDs:', mediaIds);
+    return mediaIds;
+}
+
+async function createPostWithMediaIds({ accessToken, pageId, mediaIds, message }) {
+    const url = `https://graph.facebook.com/v21.0/${pageId}/feed`;
+
+    const attachedMedia = mediaIds.map((id) => ({ media_fbid: id }));
+
+    try {
+        const response = await axios.post(
+            url,
+            {
+                access_token: accessToken,
+                message: message || 'Check out these photos!',
+                attached_media: attachedMedia,
+            }
+        );
+
+        console.log('Created post response:', response.data);
+        return response.data.id; // Post ID
+    } catch (error) {
+        console.error('Error creating post:', error.response?.data || error.message);
+        throw error;
+    }
 }
 
 
@@ -345,6 +362,16 @@ const processUpload = async ({ accessToken, pageId, caption, postType, files, me
             console.error('Post type is required.');
             throw new Error('Post type is required.');
         }
+        const mediaIds = await uploadMultiplePhotosAndGetMediaIds({
+            accessToken,
+            pageId,
+            files,
+        });
+
+        if (mediaIds.length === 0) {
+            throw new Error('No media IDs generated. Upload might have failed.');
+        }
+
 
         // Handle video uploads
         if (postType === 'videos' && files.length > 0) {
@@ -366,10 +393,18 @@ const processUpload = async ({ accessToken, pageId, caption, postType, files, me
         // Handle photo uploads
         else if (postType === 'feed') {
             try {
-                await uploadMultiplePhotos({ accessToken, pageId, files, caption });
-                console.log('All photos uploaded successfully!');
+                const postId = await createPostWithMediaIds({
+                    accessToken,
+                    pageId,
+                    mediaIds,
+                    message,
+                });
+
+                console.log(`Successfully created post with ID: ${postId}`);
+                return postId;
             } catch (error) {
-                console.error('Error during upload process:', error.message);
+                console.error('Error processing upload:', error.message);
+                throw error;
             }
         }
         // Handle text-only posts
