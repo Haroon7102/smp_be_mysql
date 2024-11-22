@@ -243,7 +243,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType } = req.body;
+    const { accessToken, pageId, caption, postType, videoPath } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId) {
