@@ -173,14 +173,13 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filen
 };
 
 // Function to create a video post on Facebook
-// Function to create video post
 const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: new URLSearchParams({
-                description: caption, // Use 'description' instead of 'message' for video
-                file_url: `https://video.fbcdn.net/v/12345?access_token=${pageAccessToken}`,
+                description: caption,
+                file_url: JSON.stringify([{ media_fbid: videoId }]),
                 access_token: pageAccessToken,
             }),
         });
@@ -189,13 +188,13 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         if (!postResponse.ok) {
             throw new Error(`Video post creation failed: ${postResult.error.message}`);
         }
-
-        return postResult;
+        return postResult.id;
     } catch (error) {
         console.error('Error creating video post:', error);
         throw error;
     }
 };
+
 
 
 // Function to handle reels (treated similarly to videos)
