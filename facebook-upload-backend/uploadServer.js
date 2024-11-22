@@ -163,12 +163,34 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filen
 
         const uploadResult = await uploadResponse.json();
         if (!uploadResponse.ok) {
-            console.log('Error response from Facebook', uploadResult);
             throw new Error(`Video upload failed: ${uploadResult.error.message}`);
         }
         return uploadResult.id;
     } catch (error) {
         console.error('Error uploading video to Facebook:', error);
+        throw error;
+    }
+};
+
+// Function to create a video post on Facebook
+const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
+    try {
+        const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+            method: 'POST',
+            body: new URLSearchParams({
+                message: caption,
+                attached_media: JSON.stringify([{ media_fbid: videoId }]),
+                access_token: pageAccessToken,
+            }),
+        });
+
+        const postResult = await postResponse.json();
+        if (!postResponse.ok) {
+            throw new Error(`Video post creation failed: ${postResult.error.message}`);
+        }
+        return postResult.id;
+    } catch (error) {
+        console.error('Error creating video post:', error);
         throw error;
     }
 };
@@ -279,22 +301,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const video = files[0]; // Assuming only one video is uploaded
                 const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
 
-                // Post the video to the page
-                const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
-                    method: 'POST',
-                    body: new URLSearchParams({
-                        message: caption,
-                        attached_media: JSON.stringify([{ media_fbid: videoId }]),
-                        access_token: pageAccessToken,
-                    }),
-                });
+                // Use the uploaded video to create a post
+                const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
 
-                const postData = await postResult.json();
-                if (!postResult.ok) {
-                    throw new Error(`Video post failed: ${postData.error.message}`);
-                }
-
-                return res.json({ success: true, postId: postData.id });
+                return res.json({ success: true, postId });
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
