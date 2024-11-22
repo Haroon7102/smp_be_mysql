@@ -149,54 +149,57 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 };
 
 // Function to upload video to Facebook
-const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filename, caption) => {
-    const formData = new FormData();
-    formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
-    formData.append('published', 'false');
-    if (caption) formData.append('description', caption);
+const uploadVideoToFacebook = async (pageId, pageAccessToken, videoPath, caption) => {
     try {
-        const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`, {
+        const formData = new FormData();
+        formData.append("file", videoPath); // Assuming videoPath is a file (local video file)
+        formData.append("description", caption);
+        formData.append("access_token", pageAccessToken);
+
+        const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders(),
         });
 
-        const uploadResult = await uploadResponse.json();
-        if (!uploadResponse.ok) {
-            throw new Error(`Video upload failed: ${uploadResult.error.message}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(`Video upload failed: ${result.error.message}`);
         }
-        return uploadResult.id;
+
+        return result.id; // The video ID for the uploaded video
     } catch (error) {
-        console.error('Error uploading video to Facebook:', error);
+        console.error("Error uploading video:", error);
         throw error;
     }
 };
+
 
 // Function to create a video post on Facebook
 const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
     try {
-        // Creating the video post by referencing the uploaded video ID
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
-                message: caption, // Add your caption/message
-                attached_media: JSON.stringify([{
-                    media_fbid: videoId, // Video ID from upload
-                }]),
-                access_token: pageAccessToken, // Page access token
+                message: caption,
+                object_id: videoId, // Use the video ID here
+                access_token: pageAccessToken,
             }),
         });
 
         const postResult = await postResponse.json();
+
         if (!postResponse.ok) {
             throw new Error(`Video post creation failed: ${postResult.error.message}`);
         }
-        return postResult.id; // Return the post ID if successful
+
+        return postResult.id; // The post ID for the created post
     } catch (error) {
-        console.error('Error creating video post:', error);
+        console.error("Error creating video post:", error);
         throw error;
     }
 };
+
 
 
 
@@ -304,8 +307,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         } else if (postType === 'videos') {
             // Handle video upload for regular video posts
             if (files && files.length > 0) {
-                const video = files[0]; // Assuming only one video is uploaded
-                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
+                // const video = files[0]; // Assuming only one video is uploaded
+                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoPath, caption);
 
                 // Use the uploaded video to create a post
                 const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
