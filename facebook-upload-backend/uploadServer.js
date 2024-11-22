@@ -193,8 +193,10 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
 
 
 
+
+
 async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
-    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`; S
+    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 
     const formData = new FormData();
     formData.append('access_token', accessToken);
