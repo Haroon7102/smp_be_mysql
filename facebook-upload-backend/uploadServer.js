@@ -154,18 +154,23 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
     formData.append('published', 'false');
     if (caption) formData.append('description', caption);
+    try {
+        const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        });
 
-    const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
-
-    const uploadResult = await uploadResponse.json();
-    if (!uploadResponse.ok) {
-        throw new Error(`Video upload failed: ${uploadResult.error.message}`);
+        const uploadResult = await uploadResponse.json();
+        if (!uploadResponse.ok) {
+            console.log('error response from facebook', uploadResult)
+            throw new Error(`Video upload failed: ${uploadResult.error.message}`);
+        }
+        return uploadResult.id;
+    } catch (error) {
+        console.error('Error uploading video to Facebook:', error);
+        throw error;
     }
-    return uploadResult.id;
 };
 
 // Function to handle reels (treated similarly to videos)
