@@ -127,13 +127,13 @@ router.use(cors({
 }));
 
 // Function to post a message to Facebook
-const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
+const postMessageToFacebook = async (pageId, accessToken, message) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
                 message,
-                access_token: pageAccessToken,
+                access_token: accessToken,
             }),
         });
 
@@ -149,13 +149,13 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 };
 
 // Function to upload video to Facebook
-const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filename, caption) => {
+const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename, caption) => {
     const formData = new FormData();
     formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
     formData.append('published', 'false');
     if (caption) formData.append('description', caption);
     try {
-        const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`, {
+        const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
             method: 'POST',
             body: formData,
             headers: formData.getHeaders(),
@@ -163,7 +163,7 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filen
 
         const uploadResult = await uploadResponse.json();
         if (!uploadResponse.ok) {
-            console.log('Error response from Facebook', uploadResult);
+            console.log('error response from facebook', uploadResult)
             throw new Error(`Video upload failed: ${uploadResult.error.message}`);
         }
         return uploadResult.id;
@@ -174,13 +174,13 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, filen
 };
 
 // Function to handle reels (treated similarly to videos)
-const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, filename, caption) => {
+const uploadReelToFacebook = async (pageId, accessToken, videoBuffer, filename, caption) => {
     const formData = new FormData();
     formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
     formData.append('published', 'false');
     if (caption) formData.append('description', caption);
 
-    const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`, {
+    const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${accessToken}`, {
         method: 'POST',
         body: formData,
         headers: formData.getHeaders(),
@@ -193,23 +193,6 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, filena
     return uploadResult.id;
 };
 
-// Get page access token using user access token
-const getPageAccessToken = async (userAccessToken, pageId) => {
-    try {
-        const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}?fields=access_token&access_token=${userAccessToken}`);
-        const result = await response.json();
-
-        if (result.error) {
-            throw new Error(`Error fetching page access token: ${result.error.message}`);
-        }
-
-        return result.access_token;
-    } catch (error) {
-        console.error('Error fetching page access token:', error);
-        throw error;
-    }
-};
-
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType } = req.body;
@@ -220,9 +203,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Fetch the page access token using the user's access token
-        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
-
         if (postType === 'feed') {
             // Handle photo upload for feed posts
             if (files && files.length > 0) {
@@ -233,7 +213,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
                     formData.append('published', 'false');
 
-                    return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
+                    return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${accessToken}`, {
                         method: 'POST',
                         body: formData,
                         headers: formData.getHeaders(),
@@ -253,7 +233,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 // Create a single post attaching all photos
                 const postData = {
                     attached_media: JSON.stringify(photoIds),
-                    access_token: pageAccessToken,
+                    access_token: accessToken,
                 };
                 if (caption) postData.message = caption;
 
@@ -270,14 +250,14 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 return res.json({ success: true, postId: postResult.id });
             } else {
                 // If no files, just post the caption
-                const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+                const postResult = await postMessageToFacebook(pageId, accessToken, caption);
                 return res.json({ result: postResult });
             }
         } else if (postType === 'videos') {
             // Handle video upload for regular video posts
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one video is uploaded
-                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
+                const videoId = await uploadVideoToFacebook(pageId, accessToken, video.buffer, video.originalname, caption);
 
                 // Post the video to the page
                 const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
@@ -285,7 +265,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     body: new URLSearchParams({
                         message: caption,
                         attached_media: JSON.stringify([{ media_fbid: videoId }]),
-                        access_token: pageAccessToken,
+                        access_token: accessToken,
                     }),
                 });
 
@@ -302,7 +282,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             // Handle reel upload (similar to video upload)
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one reel video is uploaded
-                const reelId = await uploadReelToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
+                const reelId = await uploadReelToFacebook(pageId, accessToken, video.buffer, video.originalname, caption);
 
                 // Post the reel to the page
                 const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
@@ -310,7 +290,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     body: new URLSearchParams({
                         message: caption,
                         attached_media: JSON.stringify([{ media_fbid: reelId }]),
-                        access_token: pageAccessToken,
+                        access_token: accessToken,
                     }),
                 });
 
