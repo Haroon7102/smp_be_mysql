@@ -280,7 +280,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
 
                 // Post the video to the page
-                const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
                     method: 'POST',
                     body: new URLSearchParams({
                         message: caption,
