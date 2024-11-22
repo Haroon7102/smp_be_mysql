@@ -191,31 +191,40 @@ const uploadVideoToFacebook = async (pageId, accessToken, videoBuffer, filename,
     }
 };
 
-
+// Function to upload a single photo to Facebook
 async function uploadPhotoToFacebook({ accessToken, pageId, photoBuffer, caption }) {
-    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
+    if (!accessToken || !pageId || !photoBuffer) {
+        throw new Error('Missing required parameters: accessToken, pageId, or photoBuffer');
+    }
 
+    const url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
     const formData = new FormData();
     formData.append('access_token', accessToken);
-    formData.append('caption', caption || ''); // Ensure caption is optional
-    formData.append('source', photoBuffer, 'photo.jpg'); // Use default filename
+    formData.append('caption', caption || ''); // Caption is optional
+    formData.append('source', photoBuffer, 'photo.jpg'); // Default filename
     formData.append('published', 'false'); // Prevent immediate publishing
 
     try {
         const response = await axios.post(url, formData, {
-            headers: formData.getHeaders(),
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
         });
 
         console.log('Photo upload response:', response.data);
-        return response.data.id; // Return only photo ID for creating posts
+        return response.data.id; // Return only the photo ID
     } catch (error) {
         console.error('Error uploading photo:', error.response?.data || error.message);
         throw error;
     }
 }
 
-
+// Function to upload multiple photos and get their media IDs
 async function uploadMultiplePhotosAndGetMediaIds({ accessToken, pageId, files }) {
+    if (!accessToken || !pageId || !files || files.length === 0) {
+        throw new Error('Missing required parameters: accessToken, pageId, or files');
+    }
+
     const mediaIds = [];
 
     for (const file of files) {
@@ -235,7 +244,7 @@ async function uploadMultiplePhotosAndGetMediaIds({ accessToken, pageId, files }
             console.error(`Failed to upload photo: ${file.originalname}. Error: ${err.response?.data || err.message}`);
         }
 
-        // Add a delay to prevent hitting rate limits
+        // Optional delay to prevent hitting rate limits
         await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
@@ -243,15 +252,13 @@ async function uploadMultiplePhotosAndGetMediaIds({ accessToken, pageId, files }
     return mediaIds;
 }
 
-
+// Function to create a post with multiple media IDs
 async function createPostWithMediaIds({ accessToken, pageId, mediaIds, message }) {
-    const url = `https://graph.facebook.com/v21.0/${pageId}/feed`;
-
-    if (mediaIds.length === 0) {
-        console.error('No media IDs available to create a post.');
-        throw new Error('Cannot create a post without media.');
+    if (!accessToken || !pageId || mediaIds.length === 0) {
+        throw new Error('Missing required parameters: accessToken, pageId, or mediaIds');
     }
 
+    const url = `https://graph.facebook.com/v21.0/${pageId}/feed`;
     const attachedMedia = mediaIds.map((id) => ({ media_fbid: id }));
 
     try {
@@ -261,16 +268,22 @@ async function createPostWithMediaIds({ accessToken, pageId, mediaIds, message }
                 access_token: accessToken,
                 message: message || 'Check out these photos!',
                 attached_media: attachedMedia,
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
             }
         );
 
         console.log('Created post response:', response.data);
-        return response.data.id; // Post ID
+        return response.data.id; // Return the Post ID
     } catch (error) {
         console.error('Error creating post:', error.response?.data || error.message);
         throw error;
     }
 }
+
 
 
 // Function to upload photos to Facebook
