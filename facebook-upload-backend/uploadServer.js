@@ -597,7 +597,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const videoBuffer = files[0].buffer;
 
                 // Respond early and process in background
-                // res.status(202).json({ message: 'Processing video upload. Check back later for status.' });
+                res.status(202).json({ message: 'Processing video upload. Check back later for status.' });
 
                 try {
                     const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
