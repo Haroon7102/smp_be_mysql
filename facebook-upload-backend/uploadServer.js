@@ -367,6 +367,8 @@ const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
 const { setTimeout } = require('timers/promises');
+const https = require('https');
+https.globalAgent.options.minVersion = 'TLSv1.2';
 
 require('dotenv').config();
 
