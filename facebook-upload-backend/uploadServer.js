@@ -149,16 +149,29 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 };
 
 // Function to upload video to Facebook
+const fs = require('fs'); // File system module
+const fetch = require('node-fetch'); // Ensure you're using fetch for Node.js
+const FormData = require('form-data'); // Node.js FormData
+
+// Function to upload video to Facebook
 const uploadVideoToFacebook = async (pageId, pageAccessToken, videoPath, caption) => {
     try {
+        // Read video file as a buffer
+        const videoBuffer = fs.readFileSync(videoPath);
+
         const formData = new FormData();
-        formData.append("file", videoPath); // Assuming videoPath is a file (local video file)
+        formData.append("source", videoBuffer, {
+            filename: "video.mp4", // Specify the filename
+            contentType: "video/mp4", // Specify the MIME type
+        });
         formData.append("description", caption);
         formData.append("access_token", pageAccessToken);
 
-        const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
+        // Make POST request to Facebook Graph API
+        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
+            headers: formData.getHeaders(), // Include FormData headers
         });
 
         const result = await response.json();
@@ -167,13 +180,13 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoPath, caption
             throw new Error(`Video upload failed: ${result.error.message}`);
         }
 
-        return result.id; // The video ID for the uploaded video
+        console.log("Video uploaded successfully:", result);
+        return result.id; // Return the video ID
     } catch (error) {
         console.error("Error uploading video:", error);
         throw error;
     }
 };
-
 
 // Function to create a video post on Facebook
 const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
@@ -193,12 +206,14 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
             throw new Error(`Video post creation failed: ${postResult.error.message}`);
         }
 
-        return postResult.id; // The post ID for the created post
+        console.log("Video post created successfully:", postResult);
+        return postResult.id; // Return the post ID
     } catch (error) {
         console.error("Error creating video post:", error);
         throw error;
     }
 };
+
 
 
 
