@@ -152,39 +152,34 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 
 
 // Function to upload video to Facebook
-const uploadVideoToFacebook = async (pageId, pageAccessToken, videoPath, caption) => {
+const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption) => {
     try {
-        // Read video file as a buffer
-        const videoBuffer = fs.readFileSync(videoPath);
-
         const formData = new FormData();
         formData.append("source", videoBuffer, {
-            filename: "video.mp4", // Specify the filename
-            contentType: "video/mp4", // Specify the MIME type
+            filename: "video.mp4", // Specify filename
+            contentType: "video/mp4", // MIME type
         });
         formData.append("description", caption);
         formData.append("access_token", pageAccessToken);
 
-        // Make POST request to Facebook Graph API
         const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders(), // Include FormData headers
+            headers: formData.getHeaders(),
         });
 
         const result = await response.json();
-
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
         }
 
-        console.log("Video uploaded successfully:", result);
-        return result.id; // Return the video ID
+        return result.id;
     } catch (error) {
         console.error("Error uploading video:", error);
         throw error;
     }
 };
+
 
 // Function to create a video post on Facebook
 const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
@@ -318,37 +313,15 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 return res.json({ result: postResult });
             }
         } else if (postType === 'videos') {
-            // Handle video upload for regular video posts
             if (files && files.length > 0) {
-                try {
-                    const video = files[0]; // Assuming only one video is uploaded
-
-                    // Ensure `video.path` or `video.filepath` contains the file path
-                    const videoPath = video.path || video.filepath;
-
-                    if (!videoPath) {
-                        return res.status(400).json({ error: 'Unable to locate the video file path.' });
-                    }
-
-                    console.log("Video Path:", videoPath);
-
-                    // Upload the video to Facebook
-                    const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoPath, caption);
-
-                    // Use the uploaded video to create a post
-                    const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
-
-                    return res.json({ success: true, postId });
-                } catch (error) {
-                    console.error("Error processing video upload:", error);
-                    return res.status(500).json({ error: 'An error occurred during video upload.' });
-                }
+                const videoBuffer = files[0].buffer;
+                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                return res.json({ success: true, postId });
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
-        }
-
-        else if (postType === 'reels') {
+        } else if (postType === 'reels') {
             // Handle reel upload (similar to video upload)
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one reel video is uploaded
