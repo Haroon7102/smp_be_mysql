@@ -446,6 +446,8 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         });
 
         const result = await response.json();
+        console.log('Video upload response:', result);
+
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
         }
@@ -471,6 +473,8 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         });
 
         const postResult = await postResponse.json();
+        console.log('Video post creation response:', postResult);
+
 
         if (!postResponse.ok) {
             throw new Error(`Video post creation failed: ${postResult.error.message}`);
@@ -483,10 +487,6 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         throw error;
     }
 };
-
-
-
-
 
 
 // Function to handle reels (treated similarly to videos)
