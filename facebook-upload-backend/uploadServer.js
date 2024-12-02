@@ -320,17 +320,35 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         } else if (postType === 'videos') {
             // Handle video upload for regular video posts
             if (files && files.length > 0) {
-                // const video = files[0]; // Assuming only one video is uploaded
-                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoPath, caption);
+                try {
+                    const video = files[0]; // Assuming only one video is uploaded
 
-                // Use the uploaded video to create a post
-                const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                    // Ensure `video.path` or `video.filepath` contains the file path
+                    const videoPath = video.path || video.filepath;
 
-                return res.json({ success: true, postId });
+                    if (!videoPath) {
+                        return res.status(400).json({ error: 'Unable to locate the video file path.' });
+                    }
+
+                    console.log("Video Path:", videoPath);
+
+                    // Upload the video to Facebook
+                    const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoPath, caption);
+
+                    // Use the uploaded video to create a post
+                    const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+
+                    return res.json({ success: true, postId });
+                } catch (error) {
+                    console.error("Error processing video upload:", error);
+                    return res.status(500).json({ error: 'An error occurred during video upload.' });
+                }
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
-        } else if (postType === 'reels') {
+        }
+
+        else if (postType === 'reels') {
             // Handle reel upload (similar to video upload)
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one reel video is uploaded
