@@ -111,6 +111,7 @@
 // _______________________________________________________________.
 const express = require('express');
 const fetch = require('node-fetch');
+const fs = require('fs'); // File system module
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
@@ -148,10 +149,7 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
     }
 };
 
-// Function to upload video to Facebook
-const fs = require('fs'); // File system module
-const fetch = require('node-fetch'); // Ensure you're using fetch for Node.js
-const FormData = require('form-data'); // Node.js FormData
+
 
 // Function to upload video to Facebook
 const uploadVideoToFacebook = async (pageId, pageAccessToken, videoPath, caption) => {
