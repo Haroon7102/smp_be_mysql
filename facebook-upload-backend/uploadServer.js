@@ -261,6 +261,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        res.json({ message: 'Your files is being uploaded. Please wait for the confirmation.' });
+
 
         if (postType === 'feed') {
             // Handle photo upload for feed posts
