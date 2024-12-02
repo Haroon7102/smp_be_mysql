@@ -596,7 +596,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
 
-                // Respond early and process in background
+                // Respond early and process in backgroundfaijdfshcndsovdf
                 res.status(202).json({ message: 'Processing video upload. Check back later for status.' });
 
                 try {
