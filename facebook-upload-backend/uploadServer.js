@@ -429,6 +429,34 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
         throw error;
     }
 };
+const waitForVideoProcessing = async (pageId, pageAccessToken, videoId) => {
+    const maxRetries = 10; // Number of retries
+    const delay = 5000; // Delay between retries (5 seconds)
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        console.log(`Checking video status (attempt ${attempt})...`);
+
+        const statusResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${videoId}?fields=status&access_token=${pageAccessToken}`
+        );
+
+        const statusResult = await statusResponse.json();
+        console.log("Video status response:", statusResult);
+
+        if (statusResult.status && statusResult.status.video_status === "ready") {
+            console.log("Video processing complete.");
+            return;
+        }
+
+        if (attempt === maxRetries) {
+            throw new Error("Video processing timed out.");
+        }
+
+        console.log("Video still processing. Retrying...");
+        await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+};
+
 const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption) => {
     try {
         const formData = new FormData();
@@ -451,6 +479,9 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
         }
+        // Wait for video processing
+        console.log("Waiting for video processing...");
+        await waitForVideoProcessing(pageId, pageAccessToken, videoId);
 
         return result.id;
     } catch (error) {
@@ -466,7 +497,6 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
-                message: caption,
                 object_id: videoId, // Use the video ID here
                 access_token: pageAccessToken,
             }),
