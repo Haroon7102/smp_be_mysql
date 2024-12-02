@@ -467,28 +467,33 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         formData.append("description", caption);
         formData.append("access_token", pageAccessToken);
 
+        console.log("Uploading video...");
         const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders(),
         });
 
         const result = await response.json();
-        console.log('Video upload response:', result);
+        console.log("Video upload response:", result);
 
         if (!response.ok) {
-            throw new Error(`Video upload failed: ${result.error.message}`);
+            console.error("Upload failed with error:", result.error);
+            throw new Error(result.error.message);
         }
+
+        const videoId = result.id;
+
         // Wait for video processing
         console.log("Waiting for video processing...");
         await waitForVideoProcessing(pageId, pageAccessToken, videoId);
 
-        return result.id;
+        return videoId;
     } catch (error) {
-        console.error("Error uploading video:", error);
+        console.error("Error uploading video:", error.message);
         throw error;
     }
 };
+
 
 
 // Function to create a video post on Facebook
