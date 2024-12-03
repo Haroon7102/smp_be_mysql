@@ -60,18 +60,25 @@
 // module.exports = router;
 
 
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const express = require('express');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // For S3 operations
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner'); // For generating pre-signed URLs
+const multer = require('multer');
 const router = express.Router();
-const crypto = require('crypto');
 
-// Configure S3 Client
+// Configure S3 client
 const s3Client = new S3Client({
     region: 'us-east-1', // Replace with your AWS region
     credentials: {
-        accessKeyId: 'AKIAZPPGAA7WPICT4356',  // Store in environment variables
-        secretAccessKey: 'kA1y/vXN1MNlXXYqAmqP5s6+xkT7aUrpXVi5F9Ab' // Store in environment variables
-    }
+        accessKeyId: 'AKIAZPPGAA7WPICT4356', // Use environment variables
+        secretAccessKey: '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', // Use environment variables
+    },
+});
+
+// Multer setup (only needed if handling files locally before upload)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
 // Route to generate pre-signed URL
@@ -79,29 +86,23 @@ router.post('/generate-presigned-url', async (req, res) => {
     const { fileName, fileType } = req.body;
 
     if (!fileName || !fileType) {
-        return res.status(400).json({ message: 'File name and type are required' });
+        return res.status(400).json({ message: 'File name and type are required.' });
     }
 
+    const params = {
+        Bucket: 'smpbe', // Replace with your bucket name
+        Key: `uploads/${Date.now()}_${fileName}`,
+        ContentType: fileType,
+    };
+
     try {
-        const uniqueFileName = `${crypto.randomUUID()}_${fileName}`;
-        const params = {
-            Bucket: 'smpbe',
-            Key: `uploads/${uniqueFileName}`,
-            ContentType: fileType,
-            Expires: 300 // URL expires in 5 minutes
-        };
-
-        const command = new PutObjectCommand(params);
-        const url = await s3Client.getSignedUrl(command);
-
-        res.status(200).json({
-            uploadUrl: url,
-            fileUrl: `https://${params.Bucket}.s3.amazonaws.com/${params.Key}`
-        });
+        // Generate pre-signed URL
+        const uploadUrl = await getSignedUrl(s3Client, new PutObjectCommand(params), { expiresIn: 39000000000 }); // 1 hour expiry
+        const fileUrl = `https://${params.Bucket}.s3.amazonaws.com/${params.Key}`;
+        res.status(200).json({ uploadUrl, fileUrl });
     } catch (error) {
         console.error('Error generating pre-signed URL:', error);
         res.status(500).json({ message: 'Failed to generate pre-signed URL', error: error.message });
     }
 });
-
 module.exports = router;
