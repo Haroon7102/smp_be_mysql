@@ -97,7 +97,7 @@ router.post('/generate-presigned-url', async (req, res) => {
 
     try {
         // Generate pre-signed URL
-        const uploadUrl = await getSignedUrl(s3Client, new PutObjectCommand(params), { expiresIn: 39000000000 }); // 1 hour expiry
+        const uploadUrl = await getSignedUrl(s3Client, new PutObjectCommand(params), { expiresIn: 3600 }); // 1 hour expiry
         const fileUrl = `https://${params.Bucket}.s3.amazonaws.com/${params.Key}`;
         res.status(200).json({ uploadUrl, fileUrl });
     } catch (error) {
