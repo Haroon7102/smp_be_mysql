@@ -540,26 +540,33 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 
 // Route to handle uploads and respond quickly for long tasks
 router.post('/upload', async (req, res) => {
+    console.log("Received Request Body:", req.body);  // Log the request body to verify it's correct
+
     const { accessToken, pageId, caption, postType, fileUrls } = req.body; // Accept file URLs instead of files
 
     // Validate input
     if (!accessToken || !pageId) {
+        console.error("Missing required fields: accessToken or pageId");
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     if (postType === 'feed' && (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0)) {
+        console.error("Missing file URLs for feed post.");
         return res.status(400).json({ error: 'File URLs are required for feed posts.' });
     }
 
     try {
         // Get page access token
+        console.log(`Fetching page access token for page ID: ${pageId}`);
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        console.log(`Page access token received: ${pageAccessToken}`);
 
         if (postType === 'feed') {
             // Handle post with images/videos from file URLs
             const photoIds = [];
 
             if (fileUrls && fileUrls.length > 0) {
+                console.log(`Uploading photos with file URLs: ${JSON.stringify(fileUrls)}`);
                 const uploadPromises = fileUrls.map((fileUrl) => {
                     const formData = new FormData();
                     formData.append('url', fileUrl); // Use pre-signed S3 file URL
@@ -575,10 +582,15 @@ router.post('/upload', async (req, res) => {
                                 throw new Error(`Photo upload failed: ${result.error.message}`);
                             }
                             photoIds.push({ media_fbid: result.id });
+                        })
+                        .catch((error) => {
+                            console.error('Error uploading photo:', error);
+                            throw error;
                         });
                 });
 
                 await Promise.all(uploadPromises);
+                console.log("Photo uploads successful. Photo IDs:", photoIds);
 
                 // Create post with attached media (photos)
                 const postData = {
@@ -587,27 +599,31 @@ router.post('/upload', async (req, res) => {
                 };
                 if (caption) postData.message = caption;
 
+                console.log("Posting to Facebook feed with data:", postData);
                 const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
                     method: 'POST',
                     body: new URLSearchParams(postData),
                 });
 
                 const postResult = await postResponse.json();
-
                 if (!postResponse.ok) {
+                    console.error("Failed to create post:", postResult.error);
                     throw new Error(`Failed to create post: ${postResult.error.message}`);
                 }
 
+                console.log("Post successful. Post ID:", postResult.id);
                 return res.json({ success: true, postId: postResult.id });
             } else {
                 // If no files, post just the message
+                console.log("No file URLs provided. Posting message only.");
                 const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption || ""); // Post message without file
+                console.log("Message posted successfully. Post ID:", postResult.id);
                 return res.json({ success: true, postId: postResult.id });
             }
-        }
-        else if (postType === 'videos') {
+        } else if (postType === 'videos') {
             // Handle video upload (if a file is provided, proceed with video upload)
             if (req.files && req.files.length > 0) {
+                console.log("Uploading video file:", req.files[0].originalname);
                 const videoBuffer = req.files[0].buffer;
 
                 // Respond immediately, video upload is in progress
@@ -615,18 +631,21 @@ router.post('/upload', async (req, res) => {
 
                 try {
                     const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                    console.log(`Video upload successful. Video ID: ${videoId}`);
                     const postId = await createVideoPost(pageId, pageAccessToken, videoId);
-                    console.log(`Video post successful: ${postId}`);
+                    console.log(`Video post successful. Post ID: ${postId}`);
                 } catch (backgroundError) {
                     console.error('Background task failed:', backgroundError);
                 }
                 return;
             } else {
+                console.error("Video file is required for video posts.");
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
         } else if (postType === 'reels') {
             // Handle reel upload (similar to video upload)
             if (req.files && req.files.length > 0) {
+                console.log("Uploading reel video file:", req.files[0].originalname);
                 const video = req.files[0]; // Assuming only one reel video is uploaded
                 const reelId = await uploadReelToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
 
@@ -641,14 +660,18 @@ router.post('/upload', async (req, res) => {
 
                 const postData = await postResult.json();
                 if (!postResult.ok) {
+                    console.error("Reel post failed:", postData.error);
                     throw new Error(`Reel post failed: ${postData.error.message}`);
                 }
 
+                console.log("Reel post successful. Post ID:", postData.id);
                 return res.json({ success: true, postId: postData.id });
             } else {
+                console.error("Reel video file is required for reel posts.");
                 return res.status(400).json({ error: 'Reel video file is required for reel posts.' });
             }
         } else {
+            console.error("Invalid post type:", postType);
             return res.status(400).json({ error: 'Invalid post type.' });
         }
     } catch (error) {
@@ -656,6 +679,7 @@ router.post('/upload', async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 module.exports = router;
