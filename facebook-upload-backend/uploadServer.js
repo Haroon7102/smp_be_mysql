@@ -540,9 +540,9 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 
 // Route to handle uploads and respond quickly for long tasks
 router.post('/upload', async (req, res) => {
-    console.log("Received Request Body:", req.body);  // Log the request body to verify it's correct
 
     const { accessToken, pageId, caption, postType, fileUrls } = req.body; // Accept file URLs instead of files
+    console.log("Received Request Body:", req.body);  // Log the request body to verify it's correct
 
     // Validate input
     if (!accessToken || !pageId) {
