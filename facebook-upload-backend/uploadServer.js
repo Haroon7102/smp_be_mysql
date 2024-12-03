@@ -539,7 +539,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 // Add fetchWithRetry to all Facebook API calls
 
 // Route to handle uploads and respond quickly for long tasks
-router.post('/upload', async (req, res) => {
+router.post('/upload', upload.none(), async (req, res) => {
 
     const { accessToken, pageId, caption, postType, fileUrls } = req.body; // Accept file URLs instead of files
     console.log("Received Request Body:", req.body);  // Log the request body to verify it's correct
