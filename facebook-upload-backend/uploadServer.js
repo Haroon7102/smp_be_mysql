@@ -183,7 +183,7 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
 
 
 // Function to create a video post on Facebook
-const createVideoPost = async (pageId, pageAccessToken, videoId,) => {
+const createVideoPost = async (pageId, pageAccessToken, videoId) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
@@ -317,32 +317,29 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         } else if (postType === 'videos') {
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
-                const clientResponseSent = false; // Flag to check if response has been sent
 
                 // Send response to client immediately
-                res.json({ success: true, message: 'Video upload started. Check back later for status.' });
-                clientResponseSent = true;
+                res.json({ success: true, message: 'Video upload started. The video will be posted shortly.' });
 
                 // Run upload logic in the background
                 (async () => {
                     try {
+                        console.log('Starting video upload...');
                         const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
-                        const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                        console.log('Video uploaded successfully, videoId:', videoId);
 
-                        console.log(`Video uploaded successfully with postId: ${postId}`);
+                        const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                        console.log('Post created successfully, postId:', postId);
                     } catch (error) {
-                        console.error('Error uploading video:', error);
-                        // Optional: Log the failure or send a webhook/notification for retry
+                        console.error('Error during video upload or post creation:', error.message);
+                        // You can add retry logic or save this error to a log for debugging
                     }
                 })();
-
-                if (!clientResponseSent) {
-                    return res.status(500).json({ error: 'An unknown error occurred.' });
-                }
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
-        } else if (postType === 'reels') {
+        }
+        else if (postType === 'reels') {
             // Handle reel upload (similar to video upload)
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one reel video is uploaded
