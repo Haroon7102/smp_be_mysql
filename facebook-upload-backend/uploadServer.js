@@ -541,7 +541,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 // Route to handle uploads and respond quickly for long tasks
 router.post('/upload', upload.none(), async (req, res) => {
     const { accessToken, pageId, caption, postType, fileUrls } = req.body; // Accept file URLs instead of files
-    console.log("Received Request Body:", req.body);  // Log the request body to verify it's correct
+    console.log("Received Request Body:", req.body);
 
     // Validate input
     if (!accessToken || !pageId) {
@@ -549,7 +549,7 @@ router.post('/upload', upload.none(), async (req, res) => {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
-    if (postType === 'feed' && (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0)) {
+    if (postType === 'feed' && (!fileUrls || (Array.isArray(fileUrls) && fileUrls.length === 0) || typeof fileUrls === 'string')) {
         console.error("Missing file URLs for feed post.");
         return res.status(400).json({ error: 'File URLs are required for feed posts.' });
     }
@@ -561,60 +561,65 @@ router.post('/upload', upload.none(), async (req, res) => {
         console.log(`Page access token received: ${pageAccessToken}`);
 
         if (postType === 'feed') {
-            // Ensure fileUrls is an array even if only one URL is provided
-            const urls = Array.isArray(fileUrls) ? fileUrls : [fileUrls];
-
-            const photoIds = [];
-
-            console.log(`Uploading photos with file URLs: ${JSON.stringify(urls)}`);
-
             // Handle post with images/videos from file URLs
-            const uploadPromises = urls.map((fileUrl) => {
-                const formData = new FormData();
-                formData.append('url', fileUrl); // Use pre-signed S3 file URL
-                formData.append('published', 'false'); // Ensure it isn't posted immediately
+            const photoIds = [];
+            const urls = Array.isArray(fileUrls) ? fileUrls : [fileUrls]; // Handle single URL or array of URLs
 
-                return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
-                    method: 'POST',
-                    body: formData,
-                })
-                    .then((response) => response.json())
-                    .then((result) => {
-                        if (!result.id) {
-                            throw new Error(`Photo upload failed: ${result.error.message}`);
-                        }
-                        photoIds.push({ media_fbid: result.id });
+            if (urls && urls.length > 0) {
+                console.log(`Uploading photos with file URLs: ${JSON.stringify(urls)}`);
+                const uploadPromises = urls.map((fileUrl) => {
+                    const formData = new FormData();
+                    formData.append('image_url', fileUrl); // Use the correct image_url field
+                    formData.append('published', 'false'); // Ensure it isn't posted immediately
+
+                    return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
+                        method: 'POST',
+                        body: formData,
                     })
-                    .catch((error) => {
-                        console.error('Error uploading photo:', error);
-                        throw error;
-                    });
-            });
+                        .then((response) => response.json())
+                        .then((result) => {
+                            if (!result.id) {
+                                throw new Error(`Photo upload failed: ${result.error.message}`);
+                            }
+                            photoIds.push({ media_fbid: result.id });
+                        })
+                        .catch((error) => {
+                            console.error('Error uploading photo:', error);
+                            throw error;
+                        });
+                });
 
-            await Promise.all(uploadPromises);
-            console.log("Photo uploads successful. Photo IDs:", photoIds);
+                await Promise.all(uploadPromises);
+                console.log("Photo uploads successful. Photo IDs:", photoIds);
 
-            // Create post with attached media (photos)
-            const postData = {
-                attached_media: JSON.stringify(photoIds),
-                access_token: pageAccessToken,
-            };
-            if (caption) postData.message = caption;
+                // Create post with attached media (photos)
+                const postData = {
+                    attached_media: JSON.stringify(photoIds),
+                    access_token: pageAccessToken,
+                };
+                if (caption) postData.message = caption;
 
-            console.log("Posting to Facebook feed with data:", postData);
-            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                method: 'POST',
-                body: new URLSearchParams(postData),
-            });
+                console.log("Posting to Facebook feed with data:", postData);
+                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                    method: 'POST',
+                    body: new URLSearchParams(postData),
+                });
 
-            const postResult = await postResponse.json();
-            if (!postResponse.ok) {
-                console.error("Failed to create post:", postResult.error);
-                throw new Error(`Failed to create post: ${postResult.error.message}`);
+                const postResult = await postResponse.json();
+                if (!postResponse.ok) {
+                    console.error("Failed to create post:", postResult.error);
+                    throw new Error(`Failed to create post: ${postResult.error.message}`);
+                }
+
+                console.log("Post successful. Post ID:", postResult.id);
+                return res.json({ success: true, postId: postResult.id });
+            } else {
+                // If no files, post just the message
+                console.log("No file URLs provided. Posting message only.");
+                const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption || ""); // Post message without file
+                console.log("Message posted successfully. Post ID:", postResult.id);
+                return res.json({ success: true, postId: postResult.id });
             }
-
-            console.log("Post successful. Post ID:", postResult.id);
-            return res.json({ success: true, postId: postResult.id });
         } else if (postType === 'videos') {
             // Handle video upload (if a file is provided, proceed with video upload)
             if (req.files && req.files.length > 0) {
