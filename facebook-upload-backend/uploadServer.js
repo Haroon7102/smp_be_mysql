@@ -183,12 +183,12 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
 
 
 // Function to create a video post on Facebook
-const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
+const createVideoPost = async (pageId, pageAccessToken, videoId,) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
-                message: caption,
+                // message: caption,
                 object_id: videoId, // Use the video ID here
                 access_token: pageAccessToken,
             }),
@@ -317,9 +317,28 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         } else if (postType === 'videos') {
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
-                const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
-                const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
-                return res.json({ success: true, postId });
+                const clientResponseSent = false; // Flag to check if response has been sent
+
+                // Send response to client immediately
+                res.json({ success: true, message: 'Video upload started. Check back later for status.' });
+                clientResponseSent = true;
+
+                // Run upload logic in the background
+                (async () => {
+                    try {
+                        const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                        const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+
+                        console.log(`Video uploaded successfully with postId: ${postId}`);
+                    } catch (error) {
+                        console.error('Error uploading video:', error);
+                        // Optional: Log the failure or send a webhook/notification for retry
+                    }
+                })();
+
+                if (!clientResponseSent) {
+                    return res.status(500).json({ error: 'An unknown error occurred.' });
+                }
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
