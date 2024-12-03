@@ -432,8 +432,8 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
     }
 };
 const waitForVideoProcessing = async (pageId, pageAccessToken, videoId) => {
-    const maxRetries = 10; // Number of retries
-    const delay = 5000; // Delay between retries (5 seconds)
+    const maxRetries = 10; // Maximum number of retries
+    const delay = 5000; // Delay between retries in milliseconds (5 seconds)
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         console.log(`Checking video status (attempt ${attempt})...`);
@@ -459,13 +459,10 @@ const waitForVideoProcessing = async (pageId, pageAccessToken, videoId) => {
     }
 };
 
-const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption) => {
+const uploadVideoToFacebook = async (pageId, pageAccessToken, videoUrl, caption) => {
     try {
         const formData = new FormData();
-        formData.append("source", videoBuffer, {
-            filename: "video.mp4", // Specify filename
-            contentType: "video/mp4", // MIME type
-        });
+        formData.append("file_url", videoUrl); // Use the pre-signed S3 URL
         formData.append("description", caption);
         formData.append("access_token", pageAccessToken);
 
@@ -496,10 +493,7 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
     }
 };
 
-
-
-// Function to create a video post on Facebook
-const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
+const createVideoPost = async (pageId, pageAccessToken, videoId) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
@@ -510,8 +504,7 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         });
 
         const postResult = await postResponse.json();
-        console.log('Video post creation response:', postResult);
-
+        console.log("Video post creation response:", postResult);
 
         if (!postResponse.ok) {
             throw new Error(`Video post creation failed: ${postResult.error.message}`);
@@ -523,27 +516,6 @@ const createVideoPost = async (pageId, pageAccessToken, videoId, caption) => {
         console.error("Error creating video post:", error);
         throw error;
     }
-};
-
-
-// Function to handle reels (treated similarly to videos)
-const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, filename, caption) => {
-    const formData = new FormData();
-    formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
-    formData.append('published', 'false');
-    if (caption) formData.append('description', caption);
-
-    const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
-
-    const uploadResult = await uploadResponse.json();
-    if (!uploadResponse.ok) {
-        throw new Error(`Reel upload failed: ${uploadResult.error.message}`);
-    }
-    return uploadResult.id;
 };
 
 // Get page access token using user access token
@@ -567,12 +539,15 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 // Add fetchWithRetry to all Facebook API calls
 
 // Route to handle uploads and respond quickly for long tasks
-router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType } = req.body;
-    const files = req.files;
+router.post('/upload', async (req, res) => {
+    const { accessToken, pageId, caption, postType, fileUrls } = req.body; // Accept file URLs instead of files
 
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
+    }
+
+    if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) {
+        return res.status(400).json({ error: 'File URLs are required.' });
     }
 
     try {
@@ -580,54 +555,47 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         if (postType === 'feed') {
             // Handle photo upload for feed posts
-            if (files && files.length > 0) {
-                const photoIds = [];
+            const photoIds = [];
 
-                const uploadPromises = files.map(file => {
-                    const formData = new FormData();
-                    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-                    formData.append('published', 'false');
+            const uploadPromises = fileUrls.map((fileUrl) => {
+                const formData = new FormData();
+                formData.append('url', fileUrl); // Use pre-signed S3 file URL
+                formData.append('published', 'false');
 
-                    return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    })
-                        .then(response => response.json())
-                        .then(result => {
-                            if (!result.id) {
-                                throw new Error(`Photo upload failed: ${result.error.message}`);
-                            }
-                            photoIds.push({ media_fbid: result.id });
-                        });
-                });
-
-                // Await all uploads
-                await Promise.all(uploadPromises);
-
-                // Create a single post attaching all photos
-                const postData = {
-                    attached_media: JSON.stringify(photoIds),
-                    access_token: pageAccessToken,
-                };
-                if (caption) postData.message = caption;
-
-                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
                     method: 'POST',
-                    body: new URLSearchParams(postData),
-                });
+                    body: formData,
+                })
+                    .then((response) => response.json())
+                    .then((result) => {
+                        if (!result.id) {
+                            throw new Error(`Photo upload failed: ${result.error.message}`);
+                        }
+                        photoIds.push({ media_fbid: result.id });
+                    });
+            });
 
-                const postResult = await postResponse.json();
-                if (!postResponse.ok) {
-                    throw new Error(`Failed to create post: ${postResult.error.message}`);
-                }
+            // Await all uploads
+            await Promise.all(uploadPromises);
 
-                return res.json({ success: true, postId: postResult.id });
-            } else {
-                // If no files, just post the caption
-                const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-                return res.json({ result: postResult });
+            // Create a single post attaching all photos
+            const postData = {
+                attached_media: JSON.stringify(photoIds),
+                access_token: pageAccessToken,
+            };
+            if (caption) postData.message = caption;
+
+            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                method: 'POST',
+                body: new URLSearchParams(postData),
+            });
+
+            const postResult = await postResponse.json();
+            if (!postResponse.ok) {
+                throw new Error(`Failed to create post: ${postResult.error.message}`);
             }
+
+            return res.json({ success: true, postId: postResult.id });
         }
         else if (postType === 'videos') {
             if (files && files.length > 0) {
