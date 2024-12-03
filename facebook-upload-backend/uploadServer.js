@@ -340,7 +340,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             }
         }
         else if (postType === 'reels') {
-            // Handle reel upload (similar to video upload)
+            // Handle reel upload (similar to video upload)bbbbbbbb
             if (files && files.length > 0) {
                 const video = files[0]; // Assuming only one reel video is uploaded
                 const reelId = await uploadReelToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
