@@ -181,12 +181,12 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
 };
 
 // Function to create a video post on Facebook
-const createVideoPost = async (pageId, pageAccessToken, videoId, caption = '') => {
+const createVideoPost = async (pageId, pageAccessToken, videoId) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
-                message: caption, // Optional caption
+                // message: caption, // Optional caption
                 object_id: videoId, // Use the video ID here
                 access_token: pageAccessToken,
             }),
