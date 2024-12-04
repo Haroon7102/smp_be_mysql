@@ -231,6 +231,11 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         console.error("Error uploading video:", error);
         throw error;
     }
+    finally {
+        // Ensure cleanup after the upload
+        // Cleanup any temporary resources here, like removing temp files if necessary
+        // For example, remove files from server memory if stored
+    }
 };
 
 
@@ -257,6 +262,9 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
     } catch (error) {
         console.error("Error creating video post:", error);
         throw error;
+    }
+    finally {
+        // Cleanup temporary resources
     }
 };
 
@@ -381,6 +389,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         console.error('Error during video upload or post creation:', error.message);
                         // You can add retry logic or save this error to a log for debugging
                     }
+                    finally {
+                        // Reset any temporary data related to video upload
+                    }
                 })();
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
@@ -417,6 +428,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     } catch (error) {
         console.error('Error during upload:', error);
         res.status(500).json({ error: 'Upload failed', details: error.message });
+    } finally {
+        // Cleanup after the whole process
+        // For example, reset database entries if necessary
     }
 });
 
