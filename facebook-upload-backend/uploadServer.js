@@ -206,14 +206,14 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 //     }
 // };
 
-const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption) => {
+const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
         const formData = new FormData();
         formData.append("source", videoBuffer, {
             filename: "video.mp4", // Specify filename
             contentType: "video/mp4", // MIME type
         });
-        formData.append("description", caption);
+        formData.append("description", caption || '');
         formData.append("access_token", pageAccessToken);
 
         const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
