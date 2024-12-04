@@ -115,7 +115,15 @@ const fs = require('fs'); // File system module
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
+const https = require('https');
+
 require('dotenv').config();
+
+const agent = new https.Agent({
+    rejectUnauthorized: true, // Ensures the SSL certificate is validated
+    secureProtocol: 'TLSv1_2_method', // Force TLS v1.2
+});
+
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -136,6 +144,7 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
                 message,
                 access_token: pageAccessToken,
             }),
+            agent,
         });
 
         const postResult = await postResponse.json();
@@ -221,6 +230,7 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
             headers: formData.getHeaders(),
         });
 
+
         const result = await response.json();
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
@@ -248,7 +258,8 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
                 // message: caption,
                 object_id: videoId, // Use the video ID here
                 access_token: pageAccessToken,
-            }),
+            })
+
         });
 
         const postResult = await postResponse.json();
@@ -356,6 +367,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
                     method: 'POST',
                     body: new URLSearchParams(postData),
+                    agent
+
                 });
 
                 const postResult = await postResponse.json();
@@ -411,6 +424,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         attached_media: JSON.stringify([{ media_fbid: reelId }]),
                         access_token: pageAccessToken,
                     }),
+                    agent,
+
                 });
 
                 const postData = await postResult.json();
