@@ -115,7 +115,6 @@ const fs = require('fs'); // File system module
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
-const axios = require('axios');
 require('dotenv').config();
 
 const router = express.Router();
@@ -216,8 +215,8 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         formData.append("description", caption || '');
         formData.append("access_token", pageAccessToken);
 
-        const response = await axios.post(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
-            // method: 'POST',
+        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+            method: 'POST',
             body: formData,
             headers: formData.getHeaders(),
         });
