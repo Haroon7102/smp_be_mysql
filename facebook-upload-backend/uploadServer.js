@@ -283,11 +283,12 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
         // Step 1: Start video upload
-        const startResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?upload_phase=start`, {
+        const startResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: new URLSearchParams({
+                upload_phase: 'start',
                 access_token: pageAccessToken,
-                description: caption || '',
+                description: caption,
             }),
         });
 
@@ -297,34 +298,41 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
             throw new Error(`Error starting video upload: ${startResult.error.message}`);
         }
 
-        const { upload_session_id, video_url } = startResult;
+        const { upload_session_id, start_offset, end_offset } = startResult;
 
-        // Step 2: Transfer the video
-        const formData = new FormData();
-        formData.append("source", videoBuffer, {
-            filename: "video.mp4",
-            contentType: "video/mp4"
-        });
-        formData.append("upload_session_id", upload_session_id);
-        formData.append("access_token", pageAccessToken);
+        console.log("Upload session started. Session ID:", upload_session_id);
 
-        const transferResponse = await fetch(video_url, {
-            method: 'POST',
-            body: formData,
-            headers: formData.getHeaders(),  // Ensuring headers are included
-        });
+        // Step 2: Transfer the video in chunks
+        let chunkTransferResponse;
+        do {
+            const formData = new FormData();
+            formData.append('access_token', pageAccessToken);
+            formData.append('upload_session_id', upload_session_id);
+            formData.append('start_offset', start_offset);
+            formData.append('video_file_chunk', videoBuffer);
 
-        const transferResult = await transferResponse.json();
+            chunkTransferResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+                method: 'POST',
+                body: formData,
+            });
 
-        if (!transferResponse.ok) {
-            throw new Error(`Error transferring video: ${transferResult.error.message}`);
-        }
+            const transferResult = await chunkTransferResponse.json();
+
+            if (!chunkTransferResponse.ok) {
+                throw new Error(`Error transferring video chunk: ${transferResult.error.message}`);
+            }
+
+            console.log("Chunk transferred. Progress:", transferResult);
+        } while (start_offset !== end_offset); // Repeat until the entire video is uploaded
+
+        console.log("Video chunks fully transferred.");
 
         // Step 3: Finish the upload
-        const finishResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?upload_phase=finish`, {
+        const finishResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: new URLSearchParams({
-                upload_session_id: upload_session_id,
+                upload_phase: 'finish',
+                upload_session_id,
                 access_token: pageAccessToken,
             }),
         });
@@ -335,8 +343,8 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
             throw new Error(`Error finishing video upload: ${finishResult.error.message}`);
         }
 
-        console.log("Reel uploaded successfully, videoId:", finishResult.id);
-        return finishResult.id; // Return the video ID after successful upload
+        console.log("Reel uploaded successfully, videoId:", finishResult.video_id);
+        return finishResult.video_id; // Return the video ID after successful upload
     } catch (error) {
         console.error("Error uploading reel:", error);
         throw error;
@@ -351,7 +359,6 @@ const createReelPost = async (pageId, pageAccessToken, videoId) => {
             body: new URLSearchParams({
                 object_id: videoId, // Use the video ID for creating a post
                 access_token: pageAccessToken,
-                // message: caption || '', // Optional caption for the reel
             }),
         });
 
@@ -368,6 +375,7 @@ const createReelPost = async (pageId, pageAccessToken, videoId) => {
         throw error;
     }
 };
+
 
 
 // Optional: If Facebook requires a separate step for posting reels, add it here.
