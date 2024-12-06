@@ -113,6 +113,7 @@ const express = require('express');
 const fetch = require('node-fetch');
 const fs = require('fs'); // File system module
 const multer = require('multer');
+const streamifier = require('streamifier');
 const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
@@ -294,10 +295,10 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         const { video_id, upload_url } = startResult;
         console.log('Upload initialized, Video ID:', video_id);
 
-        // Step 2: Create FormData and append the video buffer as a Blob
+        // Step 2: Create FormData and append the video buffer as a stream
         const formData = new FormData();
-        const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' }); // Ensure the type is correct
-        formData.append('file', videoBlob, 'video.mp4'); // Attach the video Blob to FormData
+        const videoStream = streamifier.createReadStream(videoBuffer); // Convert buffer to a readable stream
+        formData.append('file', videoStream, 'video.mp4'); // Append stream to FormData
 
         // Step 3: Upload the video file to Facebook
         const uploadResponse = await fetch(upload_url, {
@@ -305,7 +306,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
             headers: {
                 Authorization: `OAuth ${pageAccessToken}`,
             },
-            body: formData, // Send the FormData with the video Blob
+            body: formData, // Send the FormData with the video stream
         });
 
         const uploadResult = await uploadResponse.json();
