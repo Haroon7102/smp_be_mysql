@@ -282,6 +282,7 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 // Function to handle reels (treated similarly to videos)
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
+        // Use video_reels endpoint for uploading reels
         const formData = new FormData();
         formData.append('access_token', pageAccessToken);
         formData.append('description', caption);
@@ -290,7 +291,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
             contentType: 'video/mp4',
         });
 
-        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/video_reels`, {
             method: 'POST',
             body: formData,
         });
@@ -298,25 +299,24 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(`Error uploading video: ${result.error.message}`);
+            throw new Error(`Error uploading reel: ${result.error.message}`);
         }
 
-        console.log('Reel uploaded successfully, videoId:', result.id);
-        return result.id; // Return the video ID
+        console.log('Reel uploaded successfully, reelId:', result.id);
+        return result.id; // Return the reel ID
     } catch (error) {
         console.error('Error uploading reel:', error);
         throw error;
     }
 };
 
-
-// Function to create a reel post on Facebook
-const createReelPost = async (pageId, pageAccessToken, videoId) => {
+// Function to create a reel post on Facebook (if necessary)
+const createReelPost = async (pageId, pageAccessToken, reelId) => {
     try {
         const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
             method: 'POST',
             body: new URLSearchParams({
-                object_id: videoId, // Use the video ID for creating a post
+                object_id: reelId, // Use the reel ID for creating a post
                 access_token: pageAccessToken,
                 // message: caption || '', // Optional caption for the reel
             }),
@@ -328,13 +328,14 @@ const createReelPost = async (pageId, pageAccessToken, videoId) => {
             throw new Error(`Reel post creation failed: ${postResult.error.message}`);
         }
 
-        console.log("Reel post created successfully:", postResult);
+        console.log('Reel post created successfully:', postResult);
         return postResult.id; // Return the post ID
     } catch (error) {
-        console.error("Error creating reel post:", error);
+        console.error('Error creating reel post:', error);
         throw error;
     }
 };
+
 
 
 // Optional: If Facebook requires a separate step for posting reels, add it here.
@@ -359,7 +360,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, videoPath } = req.body;
+    const { accessToken, pageId, caption, postType, reelId } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId) {
@@ -465,7 +466,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoBuffer, caption);
                         console.log('Reel uploaded successfully, videoId:', videoId);
 
-                        const postId = await createReelPost(pageId, pageAccessToken, videoId);
+                        const postId = await createReelPost(pageId, pageAccessToken, reelId);
                         console.log('Reel post created successfully, postId:', postId);
                     } catch (error) {
                         console.error('Error during reel upload or post creation:', error.message);
