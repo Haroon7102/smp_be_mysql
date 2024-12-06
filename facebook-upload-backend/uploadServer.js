@@ -281,10 +281,14 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 };
 
 // Function to handle reels (treated similarly to videos)
+const fetch = require('node-fetch');
+const FormData = require('form-data');
+const streamifier = require('streamifier');
+
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
         // Step 1: Initialize the video upload
-        const uploadStartUri = `https://graph.facebook.com/${pageId}/video_reels?upload_phase=start&access_token=${pageAccessToken}`;
+        const uploadStartUri = `https://graph.facebook.com/v21.0/${pageId}/video_reels?upload_phase=start&access_token=${pageAccessToken}`;
         const initiateUploadResponse = await fetch(uploadStartUri, { method: 'POST' });
         const startResult = await initiateUploadResponse.json();
 
@@ -303,9 +307,6 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         // Step 3: Upload the video file to Facebook
         const uploadResponse = await fetch(upload_url, {
             method: 'POST',
-            headers: {
-                Authorization: `OAuth ${pageAccessToken}`,
-            },
             body: formData, // Send the FormData with the video stream
         });
 
@@ -319,14 +320,14 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
 
         console.log('Video uploaded successfully:', uploadResult);
 
-        // Step 4: Add caption to the video (optional)
+        // Step 4: Optionally, add caption to the video (if provided)
         if (caption) {
-            const addCaptionUri = `https://graph.facebook.com/${pageId}/video_reels?upload_phase=finish&access_token=${pageAccessToken}`;
+            const addCaptionUri = `https://graph.facebook.com/v21.0/${pageId}/video_reels?upload_phase=finish&access_token=${pageAccessToken}`;
             const captionResponse = await fetch(addCaptionUri, {
                 method: 'POST',
                 body: new URLSearchParams({
                     description: caption,
-                    upload_session_id: video_id,
+                    upload_session_id: video_id, // Make sure this matches the session
                 }),
             });
 
@@ -346,6 +347,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         throw error;
     }
 };
+
 
 
 
