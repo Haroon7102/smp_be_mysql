@@ -312,7 +312,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         const uploadResult = await uploadResponse.json();
 
         if (!uploadResponse.ok) {
-            // Check if the error response contains a message
+            console.log('Upload failed. Response:', uploadResult);  // Log the response for debugging
             const errorMessage = uploadResult?.error?.message || 'Unknown error during video upload';
             throw new Error(`Error uploading video: ${errorMessage}`);
         }
@@ -333,7 +333,6 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
             const captionResult = await captionResponse.json();
 
             if (!captionResponse.ok) {
-                // Check if the error response contains a message
                 const captionErrorMessage = captionResult?.error?.message || 'Unknown error during caption addition';
                 throw new Error(`Error adding caption: ${captionErrorMessage}`);
             }
@@ -347,6 +346,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         throw error;
     }
 };
+
 
 
 
