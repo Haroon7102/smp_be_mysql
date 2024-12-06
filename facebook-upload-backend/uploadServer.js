@@ -280,24 +280,40 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 };
 
 // Function to handle reels (treated similarly to videos)
-const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, filename, caption) => {
-    const formData = new FormData();
-    formData.append('source', videoBuffer, { filename, contentType: 'video/mp4' });
-    formData.append('published', 'false');
-    if (caption) formData.append('description', caption);
+const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
+    try {
+        // Step 1: Upload the video to Facebook as a reel
+        const formData = new FormData();
+        formData.append("source", videoBuffer, {
+            filename: "reel.mp4", // Specify filename
+            contentType: "video/mp4", // MIME type
+        });
+        formData.append("description", caption || '');
+        formData.append("access_token", pageAccessToken);
 
-    const uploadResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`, {
-        method: 'POST',
-        body: formData,
-        headers: formData.getHeaders(),
-    });
+        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/reels`, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),
+        });
 
-    const uploadResult = await uploadResponse.json();
-    if (!uploadResponse.ok) {
-        throw new Error(`Reel upload failed: ${uploadResult.error.message}`);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(`Reel upload failed: ${result.error.message}`);
+        }
+
+        console.log("Reel uploaded successfully:", result);
+        return result.id; // Return the reel ID
+    } catch (error) {
+        console.error("Error uploading reel:", error);
+        throw error;
+    } finally {
+        // Cleanup temporary resources if necessary
     }
-    return uploadResult.id;
 };
+
+// Optional: If Facebook requires a separate step for posting reels, add it here.
+
 
 // Get page access token using user access token
 const getPageAccessToken = async (userAccessToken, pageId) => {
@@ -411,31 +427,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             }
         }
         else if (postType === 'reels') {
-            // Handle reel upload (similar to video upload)bbbbbbbb
-            if (files && files.length > 0) {
-                const video = files[0]; // Assuming only one reel video is uploaded
-                const reelId = await uploadReelToFacebook(pageId, pageAccessToken, video.buffer, video.originalname, caption);
-
-                // Post the reel to the page
-                const postResult = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                    method: 'POST',
-                    body: new URLSearchParams({
-                        message: caption,
-                        attached_media: JSON.stringify([{ media_fbid: reelId }]),
-                        access_token: pageAccessToken,
-                    }),
-                    agent,
-
-                });
-
-                const postData = await postResult.json();
-                if (!postResult.ok) {
-                    throw new Error(`Reel post failed: ${postData.error.message}`);
-                }
-
-                return res.json({ success: true, postId: postData.id });
-            } else {
-                return res.status(400).json({ error: 'Reel video file is required for reel posts.' });
+            try {
+                const reelId = await uploadReelToFacebook(selectedPageId, selectedPage.access_token, files[0], message);
+                alert(`Reel posted successfully with ID: ${reelId}`);
+            } catch (error) {
+                alert(`Error uploading reel: ${error.message}`);
             }
         } else {
             return res.status(400).json({ error: 'Invalid post type.' });
