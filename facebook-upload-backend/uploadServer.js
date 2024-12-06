@@ -294,16 +294,18 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         const { video_id, upload_url } = startResult;
         console.log('Upload initialized, Video ID:', video_id);
 
-        // Step 2: Upload the video file (using the videoBuffer)
+        // Step 2: Create FormData and append the video buffer as a Blob
         const formData = new FormData();
-        formData.append('file', new Blob([videoBuffer]), 'video.mp4'); // Attach video buffer to FormData
+        const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' }); // Ensure the type is correct
+        formData.append('file', videoBlob, 'video.mp4'); // Attach the video Blob to FormData
 
+        // Step 3: Upload the video file to Facebook
         const uploadResponse = await fetch(upload_url, {
             method: 'POST',
             headers: {
                 Authorization: `OAuth ${pageAccessToken}`,
             },
-            body: formData, // Send the FormData containing the video buffer
+            body: formData, // Send the FormData with the video Blob
         });
 
         const uploadResult = await uploadResponse.json();
@@ -314,7 +316,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
 
         console.log('Video uploaded successfully:', uploadResult);
 
-        // Step 3: Add caption to the video (optional)
+        // Step 4: Add caption to the video (optional)
         if (caption) {
             const addCaptionUri = `https://graph.facebook.com/${pageId}/video_reels?upload_phase=finish&access_token=${pageAccessToken}`;
             const captionResponse = await fetch(addCaptionUri, {
@@ -340,6 +342,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         throw error;
     }
 };
+
 
 
 
