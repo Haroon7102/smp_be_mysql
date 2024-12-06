@@ -429,9 +429,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         else if (postType === 'reels') {
             try {
                 const reelId = await uploadReelToFacebook(selectedPageId, selectedPage.access_token, files[0], message);
-                alert(`Reel posted successfully with ID: ${reelId}`);
+                console.log(`Reel posted successfully with ID: ${reelId}`);
             } catch (error) {
-                alert(`Error uploading reel: ${error.message}`);
+                console.log(`Error uploading reel: ${error.message}`);
             }
         } else {
             return res.status(400).json({ error: 'Invalid post type.' });
