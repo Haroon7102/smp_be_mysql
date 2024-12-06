@@ -280,7 +280,7 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 };
 
 // Function to handle reels (treated similarly to videos)
-const uploadReelToFacebook = async (pageId, pageAccessToken, videoUrl, caption = '') => {
+const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
         // Step 1: Initialize the video upload
         const uploadStartUri = `https://graph.facebook.com/${pageId}/video_reels?upload_phase=start&access_token=${pageAccessToken}`;
@@ -294,13 +294,16 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoUrl, caption =
         const { video_id, upload_url } = startResult;
         console.log('Upload initialized, Video ID:', video_id);
 
-        // Step 2: Upload the video file
+        // Step 2: Upload the video file (using the videoBuffer)
+        const formData = new FormData();
+        formData.append('file', new Blob([videoBuffer]), 'video.mp4'); // Attach video buffer to FormData
+
         const uploadResponse = await fetch(upload_url, {
             method: 'POST',
             headers: {
                 Authorization: `OAuth ${pageAccessToken}`,
-                file_url: videoUrl, // Externally accessible URL for the video
             },
+            body: formData, // Send the FormData containing the video buffer
         });
 
         const uploadResult = await uploadResponse.json();
@@ -311,8 +314,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoUrl, caption =
 
         console.log('Video uploaded successfully:', uploadResult);
 
-        // Step 3: Add caption to the video (if necessary, depending on API behavior)
-        // This is optional if the caption is already included during upload initialization
+        // Step 3: Add caption to the video (optional)
         if (caption) {
             const addCaptionUri = `https://graph.facebook.com/${pageId}/video_reels?upload_phase=finish&access_token=${pageAccessToken}`;
             const captionResponse = await fetch(addCaptionUri, {
@@ -332,12 +334,13 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoUrl, caption =
             console.log('Caption added successfully:', captionResult);
         }
 
-        return video_id; // Return the uploaded video ID for further use
+        return video_id; // Return the uploaded video ID
     } catch (error) {
         console.error('Error uploading reel:', error);
         throw error;
     }
 };
+
 
 
 
@@ -457,7 +460,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         }
         else if (postType === 'reels') {
             if (files && files.length > 0) {
-                const videoBuffer = files[0].buffer;
+                const videoBuffer = files[0].buffer; // Get the video buffer from the uploaded file
+                const caption = req.body.caption || ''; // Optional caption
 
                 // Send response to client immediately
                 res.json({ success: true, message: 'Reel upload started. The reel will be posted shortly.' });
@@ -466,18 +470,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 (async () => {
                     try {
                         console.log('Starting reel upload...');
-                        const videoUrl = await uploadVideoToStorage(videoBuffer); // Upload to cloud storage first
-                        const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoUrl, caption);
+                        const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoBuffer, caption);
                         console.log('Reel uploaded successfully, videoId:', videoId);
-
-                        // const postId = await createReelPost(pageId, pageAccessToken, videoId);
-                        // console.log('Reel post created successfully, postId:', postId);
                     } catch (error) {
-                        console.error('Error during reel upload or post creation:', error.message);
-                        // You can add retry logic or save this error to a log for debugging
-                    }
-                    finally {
-                        // Reset any temporary data related to video upload
+                        console.error('Error during reel upload:', error.message);
+                        // Add retry logic or log the error for debugging
                     }
                 })();
             } else {
