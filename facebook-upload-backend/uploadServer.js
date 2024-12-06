@@ -282,37 +282,64 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 // Function to handle reels (treated similarly to videos)
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
-        // Convert videoBuffer to a readable stream
-        const { Readable } = require('stream');
-        const videoStream = Readable.from(videoBuffer);
-
-        // Prepare form data for the video upload (this will upload the reel)
-        const formData = new FormData();
-        formData.append("source", videoStream, {
-            filename: "video.mp4", // Specify filename
-            contentType: "video/mp4", // MIME type
-        });
-        formData.append("description", caption || '');
-        formData.append("access_token", pageAccessToken);
-
-        // Upload the video to Facebook as a reel
-        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/video_reels`, {
+        // Step 1: Start video upload
+        const startResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?upload_phase=start`, {
             method: 'POST',
-            body: formData,
-            headers: formData.getHeaders(),
+            body: new URLSearchParams({
+                access_token: pageAccessToken,
+                description: caption || '',
+            }),
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(`Reel upload failed: ${result.error.message}`);
+        const startResult = await startResponse.json();
+
+        if (!startResponse.ok) {
+            throw new Error(`Error starting video upload: ${startResult.error.message}`);
         }
 
-        return result.id;
+        const { upload_session_id, video_url } = startResult;
+
+        // Step 2: Transfer the video
+        const formData = new FormData();
+        formData.append("source", videoBuffer, {
+            filename: "video.mp4",
+            contentType: "video/mp4"
+        });
+        formData.append("upload_session_id", upload_session_id);
+        formData.append("access_token", pageAccessToken);
+
+        const transferResponse = await fetch(video_url, {
+            method: 'POST',
+            body: formData,
+            headers: formData.getHeaders(),  // Ensuring headers are included
+        });
+
+        const transferResult = await transferResponse.json();
+
+        if (!transferResponse.ok) {
+            throw new Error(`Error transferring video: ${transferResult.error.message}`);
+        }
+
+        // Step 3: Finish the upload
+        const finishResponse = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?upload_phase=finish`, {
+            method: 'POST',
+            body: new URLSearchParams({
+                upload_session_id: upload_session_id,
+                access_token: pageAccessToken,
+            }),
+        });
+
+        const finishResult = await finishResponse.json();
+
+        if (!finishResponse.ok) {
+            throw new Error(`Error finishing video upload: ${finishResult.error.message}`);
+        }
+
+        console.log("Reel uploaded successfully, videoId:", finishResult.id);
+        return finishResult.id; // Return the video ID after successful upload
     } catch (error) {
         console.error("Error uploading reel:", error);
         throw error;
-    } finally {
-        // Optional: Cleanup temporary resources
     }
 };
 
@@ -341,6 +368,7 @@ const createReelPost = async (pageId, pageAccessToken, videoId) => {
         throw error;
     }
 };
+
 
 // Optional: If Facebook requires a separate step for posting reels, add it here.
 
