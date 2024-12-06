@@ -466,7 +466,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 (async () => {
                     try {
                         console.log('Starting reel upload...');
-                        const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                        const videoUrl = await uploadVideoToStorage(videoBuffer); // Upload to cloud storage first
+                        const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoUrl, caption);
                         console.log('Reel uploaded successfully, videoId:', videoId);
 
                         // const postId = await createReelPost(pageId, pageAccessToken, videoId);
