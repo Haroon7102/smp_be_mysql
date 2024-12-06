@@ -280,10 +280,6 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
     }
 };
 
-// Function to handle reels (treated similarly to videos)
-const fetch = require('node-fetch');
-const FormData = require('form-data');
-const streamifier = require('streamifier');
 
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
