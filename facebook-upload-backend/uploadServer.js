@@ -296,7 +296,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
         formData.append("access_token", pageAccessToken);
 
         // Upload the video to Facebook as a reel
-        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos?upload_phase=start`, {
+        const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/video_reels`, {
             method: 'POST',
             body: formData,
             headers: formData.getHeaders(),
