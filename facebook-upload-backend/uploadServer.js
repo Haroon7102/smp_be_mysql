@@ -428,7 +428,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         }
         else if (postType === 'reels') {
             try {
-                const reelId = await uploadReelToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                const reelId = await uploadReelToFacebook(pageId, pageAccessToken, files[0], caption);
                 console.log(`Reel posted successfully with ID: ${reelId}`);
             } catch (error) {
                 console.log(`Error uploading reel: ${error.message}`);
