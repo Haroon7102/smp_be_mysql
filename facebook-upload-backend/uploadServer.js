@@ -407,7 +407,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     const files = req.files;
 
     // Assuming the logged-in user's email is stored in req.user
-    const email = req.user.email;
+    const { email } = req.body;
 
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
