@@ -403,11 +403,11 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType } = req.body;
+    const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
 
     // Assuming the logged-in user's email is stored in req.user
-    const { email } = req.body;
+    // const { email } = req.body;
 
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
