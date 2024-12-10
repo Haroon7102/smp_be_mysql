@@ -117,7 +117,7 @@ const streamifier = require('streamifier');
 const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
-const { Post } = require('../models/Post'); // Ensure you have a Post model
+const { FbPost } = require('../models/FbPost'); // Ensure you have a Post model
 
 require('dotenv').config();
 
@@ -381,7 +381,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 const savePostToDatabase = async (userId, pageId, pageName, message, media, postId) => {
     try {
         // Create the new post entry in the database
-        const newPost = await Post.create({
+        const newPost = await FbPost.create({
             userId,       // User ID of the person making the post
             pageId,       // Page ID to which the post was made
             pageName,     // Page name to which the post was made
