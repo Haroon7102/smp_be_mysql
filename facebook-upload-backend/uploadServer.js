@@ -283,40 +283,72 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
-        // Step 1: Upload the video directly
-        const uploadUrl = `https://graph.facebook.com/v21.0/${pageId}/video_reels`;
-
-        // Step 2: Create FormData
-        const formData = new FormData();
-        formData.append('source', videoBuffer, 'video.mp4'); // Attach the video file
-        if (caption) {
-            formData.append('description', caption); // Add the caption if provided
-        }
-
-        // Step 3: Send POST request to upload the video as a Reel
-        const uploadResponse = await fetch(uploadUrl, {
+        // Step 1: Start the upload session
+        const uploadStartUrl = `https://graph.facebook.com/v21.0/${pageId}/video_reels`;
+        const initiateUploadResponse = await fetch(uploadStartUrl, {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${pageAccessToken}`, // Use Bearer token
-            },
-            body: formData, // FormData containing the video and optional caption
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                upload_phase: 'start',
+                access_token: pageAccessToken,
+            }),
         });
 
-        const uploadResult = await uploadResponse.json();
-
-        if (!uploadResponse.ok) {
-            console.error('Upload failed. Response:', uploadResult); // Log the error response
-            throw new Error(uploadResult?.error?.message || 'Unknown error during video upload');
+        const startResult = await initiateUploadResponse.json();
+        if (!initiateUploadResponse.ok) {
+            throw new Error(
+                `Error initiating upload: ${startResult?.error?.message || 'Unknown error'}`
+            );
         }
 
-        console.log('Reel uploaded successfully:', uploadResult);
+        const { upload_session_id, video_id, upload_url } = startResult;
+        console.log('Upload session started. Video ID:', video_id, 'Session ID:', upload_session_id);
 
-        return uploadResult; // Return the upload result
+        // Step 2: Transfer the video file
+        const formData = new FormData();
+        formData.append('file', videoBuffer, 'video.mp4'); // Append the video buffer
+        const uploadTransferResponse = await fetch(upload_url, {
+            method: 'POST',
+            body: formData,
+        });
+
+        const transferResult = await uploadTransferResponse.json();
+        if (!uploadTransferResponse.ok) {
+            throw new Error(
+                `Error during file transfer: ${transferResult?.error?.message || 'Unknown error'}`
+            );
+        }
+        console.log('File transfer completed successfully:', transferResult);
+
+        // Step 3: Finish the upload session
+        const finishUploadUrl = `https://graph.facebook.com/v21.0/${pageId}/video_reels`;
+        const finishUploadResponse = await fetch(finishUploadUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                upload_phase: 'finish',
+                upload_session_id,
+                access_token: pageAccessToken,
+                description: caption, // Add caption if provided
+            }),
+        });
+
+        const finishResult = await finishUploadResponse.json();
+        if (!finishUploadResponse.ok) {
+            throw new Error(
+                `Error finishing upload: ${finishResult?.error?.message || 'Unknown error'}`
+            );
+        }
+
+        console.log('Upload completed successfully:', finishResult);
+
+        return finishResult; // Return the upload result
     } catch (error) {
         console.error('Error uploading reel:', error);
         throw error;
     }
 };
+
 
 
 
