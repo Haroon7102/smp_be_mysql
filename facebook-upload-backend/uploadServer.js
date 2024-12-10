@@ -410,9 +410,24 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     // const { email } = req.body;
 
 
-    // if (!accessToken || !pageId) {
-    //     return res.status(400).json({ error: 'Access token and page ID are required.' });
-    // }
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    // If accessToken or pageId are missing, handle the case where they are optional
+    if (!accessToken || !pageId) {
+        // If no access token or page ID, we won't interact with Facebook
+        try {
+            // Just respond that the email was received, no Facebook interaction
+            return res.json({
+                success: true,
+                message: 'Email received, no Facebook post created as no accessToken or pageId provided.'
+            });
+        } catch (error) {
+            console.error('Error when processing the email only request:', error);
+            return res.status(500).json({ error: 'Error processing request without Facebook interaction.', details: error.message });
+        }
+    }
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
