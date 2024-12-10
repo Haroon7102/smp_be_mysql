@@ -13,7 +13,8 @@ module.exports = {
         type: Sequelize.STRING
       },
       email: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        unique: true // Add unique constraint to the email column
       },
       password: {
         type: Sequelize.STRING

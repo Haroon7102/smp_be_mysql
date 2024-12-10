@@ -9,12 +9,12 @@ module.exports = {
         primaryKey: true,
         autoIncrement: true,
       },
-      userId: {
-        type: Sequelize.INTEGER,
+      email: {
+        type: Sequelize.STRING(255),
         allowNull: false,
         references: {
           model: 'Users', // Ensure 'users' table exists in your database
-          key: 'id',
+          key: 'email',
         },
         onDelete: 'CASCADE', // Optional, depends on your requirements
       },
@@ -40,7 +40,7 @@ module.exports = {
         allowNull: true, // Optional: can be null if no media is associated with the post
       },
       postTypes: {
-        type: Sequelize.JSON, // Use JSON to store multiple post types or attributes
+        type: Sequelize.JSON, // Use JSON to store multiple post types or attributes mmm
         allowNull: true, // Optional: can be null if no post type is assigned
       },
       createdAt: {

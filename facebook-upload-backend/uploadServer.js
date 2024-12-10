@@ -378,18 +378,19 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 };
 
 // Save post data to the database
-const savePostToDatabase = async (userId, pageId, pageName, message, media, postId) => {
+const savePostToDatabase = async (email, pageId, pageName, message, accessToken, media, postId) => {
     try {
         // Create the new post entry in the database
         const newPost = await FbPost.create({
-            userId,       // User ID of the person making the post
+            email,        // Email of the person making the post
             pageId,       // Page ID to which the post was made
             pageName,     // Page name to which the post was made
             message,      // Message of the post
+            accessToken,  // Access token used for posting
             media,        // Media (image/video) IDs
             postId,       // Facebook post ID
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
         console.log("Post saved successfully to the database:", newPost);
         return newPost;
@@ -400,9 +401,13 @@ const savePostToDatabase = async (userId, pageId, pageName, message, media, post
 };
 
 
+
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, videoPath, userId } = req.body;
+    const { accessToken, pageId, caption, postType } = req.body;
     const files = req.files;
+
+    // Assuming the logged-in user's email is stored in req.user
+    const email = req.user.email;
 
     if (!accessToken || !pageId) {
         return res.status(400).json({ error: 'Access token and page ID are required.' });
@@ -467,8 +472,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post data to the database, including pageName
-                await savePostToDatabase(userId, pageId, pageDetails, caption, JSON.stringify(photoIds), postId);
+                // Save post data to the database
+                await savePostToDatabase(email, pageId, pageDetails, caption, JSON.stringify(photoIds), postId);
 
                 return res.json({ success: true, postId });
             } else {
@@ -477,7 +482,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 postId = postResult.id;
 
                 // Save post data to the database
-                await savePostToDatabase(userId, pageId, pageDetails, caption, null, postId);
+                await savePostToDatabase(email, pageId, pageDetails, caption, null, postId);
 
                 return res.json({ result: postResult });
             }
@@ -495,7 +500,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
 
                         // Save post data to the database
-                        await savePostToDatabase(userId, pageId, pageDetails, caption, videoId, postId);
+                        await savePostToDatabase(email, pageId, pageDetails, caption, videoId, postId);
                     } catch (error) {
                         console.error('Error during video upload or post creation:', error.message);
                     }
@@ -511,6 +516,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 

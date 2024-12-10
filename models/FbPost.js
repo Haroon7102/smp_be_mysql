@@ -7,12 +7,12 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             autoIncrement: true,
         },
-        userId: {
+        email: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
                 model: 'Users', // Ensure the 'Users' model exists
-                key: 'id',
+                key: 'email',
             },
             onDelete: 'CASCADE', // Ensures related posts are deleted if the user is deleted
         },
