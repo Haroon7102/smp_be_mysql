@@ -283,66 +283,41 @@ const createVideoPost = async (pageId, pageAccessToken, videoId) => {
 
 const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
-        // Step 1: Initialize the video upload
-        const uploadStartUri = `https://graph.facebook.com/v21.0/${pageId}/video_reels?upload_phase=start&access_token=${pageAccessToken}`;
-        const initiateUploadResponse = await fetch(uploadStartUri, { method: 'POST' });
-        const startResult = await initiateUploadResponse.json();
+        // Step 1: Upload the video directly
+        const uploadUrl = `https://graph.facebook.com/v21.0/${pageId}/video_reels`;
 
-        if (!initiateUploadResponse.ok) {
-            throw new Error(`Error initiating upload: ${startResult.error?.message || 'Unknown error'}`);
+        // Step 2: Create FormData
+        const formData = new FormData();
+        formData.append('source', videoBuffer, 'video.mp4'); // Attach the video file
+        if (caption) {
+            formData.append('description', caption); // Add the caption if provided
         }
 
-        const { video_id, upload_url } = startResult;
-        console.log('Upload initialized, Video ID:', video_id);
-
-        // Step 2: Create FormData and append the video buffer as a stream
-        const formData = new FormData();
-        const videoStream = streamifier.createReadStream(videoBuffer); // Convert buffer to a readable stream
-        formData.append('file', videoStream, 'video.mp4'); // Append stream to FormData
-
-        // Step 3: Upload the video file to Facebook
-        const uploadResponse = await fetch(upload_url, {
+        // Step 3: Send POST request to upload the video as a Reel
+        const uploadResponse = await fetch(uploadUrl, {
             method: 'POST',
-            body: formData, // Send the FormData with the video stream
+            headers: {
+                Authorization: `Bearer ${pageAccessToken}`, // Use Bearer token
+            },
+            body: formData, // FormData containing the video and optional caption
         });
 
         const uploadResult = await uploadResponse.json();
 
         if (!uploadResponse.ok) {
-            console.log('Upload failed. Response:', uploadResult);  // Log the response for debugging
-            const errorMessage = uploadResult?.error?.message || 'Unknown error during video upload';
-            throw new Error(`Error uploading video: ${errorMessage}`);
+            console.error('Upload failed. Response:', uploadResult); // Log the error response
+            throw new Error(uploadResult?.error?.message || 'Unknown error during video upload');
         }
 
-        console.log('Video uploaded successfully:', uploadResult);
+        console.log('Reel uploaded successfully:', uploadResult);
 
-        // Step 4: Optionally, add caption to the video (if provided)
-        if (caption) {
-            const addCaptionUri = `https://graph.facebook.com/v21.0/${pageId}/video_reels?upload_phase=finish&access_token=${pageAccessToken}`;
-            const captionResponse = await fetch(addCaptionUri, {
-                method: 'POST',
-                body: new URLSearchParams({
-                    description: caption,
-                    upload_session_id: video_id, // Make sure this matches the session
-                }),
-            });
-
-            const captionResult = await captionResponse.json();
-
-            if (!captionResponse.ok) {
-                const captionErrorMessage = captionResult?.error?.message || 'Unknown error during caption addition';
-                throw new Error(`Error adding caption: ${captionErrorMessage}`);
-            }
-
-            console.log('Caption added successfully:', captionResult);
-        }
-
-        return video_id; // Return the uploaded video ID
+        return uploadResult; // Return the upload result
     } catch (error) {
         console.error('Error uploading reel:', error);
         throw error;
     }
 };
+
 
 
 
