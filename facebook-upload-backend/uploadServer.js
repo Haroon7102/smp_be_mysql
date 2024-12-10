@@ -409,24 +409,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     // Assuming the logged-in user's email is stored in req.user
     // const { email } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required.' });
-    }
 
-    // If accessToken or pageId are not provided, handle it differently
-    if (!accessToken || !pageId) {
-        // Only proceed with saving data using email if no access token or page ID is provided
-        try {
-            // Save the post data to the database using just email (without Facebook logic)
-            await savePostToDatabase(email); // Only email will be saved
-
-            return res.json({ success: true, message: 'Post data saved with email only.' });
-        } catch (error) {
-            console.error('Error during saving post:', error);
-            return res.status(500).json({ error: 'Error saving post with email', details: error.message });
-        }
-    }
-
+    // if (!accessToken || !pageId) {
+    //     return res.status(400).json({ error: 'Access token and page ID are required.' });
+    // }
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
