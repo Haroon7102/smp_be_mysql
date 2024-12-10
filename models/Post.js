@@ -1,5 +1,7 @@
+// models/FbPost.js
+
 module.exports = (sequelize, DataTypes) => {
-    const Post = sequelize.define('Post', {
+    const FbPost = sequelize.define('FbPost', {
         id: {
             type: DataTypes.INTEGER,
             primaryKey: true,
@@ -8,14 +10,35 @@ module.exports = (sequelize, DataTypes) => {
         userId: {
             type: DataTypes.INTEGER,
             allowNull: false,
+            references: {
+                model: 'Users', // Ensure the 'Users' model exists
+                key: 'id',
+            },
+            onDelete: 'CASCADE', // Ensures related posts are deleted if the user is deleted
         },
         pageId: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(255),
+            allowNull: false,
+        },
+        pageName: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+        },
+        accessToken: {
+            type: DataTypes.TEXT,
             allowNull: false,
         },
         message: {
             type: DataTypes.TEXT,
-            allowNull: false,
+            allowNull: true,
+        },
+        media: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+        postTypes: {
+            type: DataTypes.JSON,
+            allowNull: true,
         },
         createdAt: {
             type: DataTypes.DATE,
@@ -28,8 +51,14 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: DataTypes.NOW,
         },
     }, {
-        tableName: 'posts',
+        tableName: 'fb_post', // The table name as defined in the migration
+        timestamps: true, // Ensures `createdAt` and `updatedAt` are handled automatically
     });
 
-    return Post;
+    // Associations
+    FbPost.associate = (models) => {
+        FbPost.belongsTo(models.User, { foreignKey: 'userId' });
+    };
+
+    return FbPost;
 };
