@@ -117,7 +117,7 @@ const streamifier = require('streamifier');
 const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
-const { FbPost } = require('../models/FbPost'); // Ensure you have a Post model
+const { FbPost } = require('../models'); // Ensure you have a Post model
 
 require('dotenv').config();
 
