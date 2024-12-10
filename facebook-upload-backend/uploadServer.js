@@ -296,6 +296,7 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
 
         const startResult = await initiateUploadResponse.json();
         if (!initiateUploadResponse.ok) {
+            console.error('Error during upload initiation:', startResult);
             throw new Error(
                 `Error initiating upload: ${startResult?.error?.message || 'Unknown error'}`
             );
@@ -306,7 +307,9 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
 
         // Step 2: Transfer the video file
         const formData = new FormData();
-        formData.append('file', videoBuffer, 'video.mp4'); // Append the video buffer
+        const videoStream = streamifier.createReadStream(videoBuffer); // Convert buffer to readable stream
+        formData.append('file', videoStream, 'video.mp4'); // Add video to FormData
+
         const uploadTransferResponse = await fetch(upload_url, {
             method: 'POST',
             body: formData,
@@ -314,10 +317,12 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
 
         const transferResult = await uploadTransferResponse.json();
         if (!uploadTransferResponse.ok) {
+            console.error('Error during file transfer:', transferResult);
             throw new Error(
                 `Error during file transfer: ${transferResult?.error?.message || 'Unknown error'}`
             );
         }
+
         console.log('File transfer completed successfully:', transferResult);
 
         // Step 3: Finish the upload session
@@ -329,12 +334,13 @@ const uploadReelToFacebook = async (pageId, pageAccessToken, videoBuffer, captio
                 upload_phase: 'finish',
                 upload_session_id,
                 access_token: pageAccessToken,
-                description: caption, // Add caption if provided
+                description: caption,
             }),
         });
 
         const finishResult = await finishUploadResponse.json();
         if (!finishUploadResponse.ok) {
+            console.error('Error during finishing upload:', finishResult);
             throw new Error(
                 `Error finishing upload: ${finishResult?.error?.message || 'Unknown error'}`
             );
