@@ -36,7 +36,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.JSON,
             allowNull: true,
         },
-        postTypes: {
+        postId: {
             type: DataTypes.JSON,
             allowNull: true,
         },
