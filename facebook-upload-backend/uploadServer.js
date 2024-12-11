@@ -534,7 +534,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 }
             }
         } else {
-            return res.status(400).json({ error: 'No files uploaded. Please upload at least one file.' });
+            const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+            return res.json({ result: postResult });
         }
     } catch (error) {
         console.error('Error during upload:', error);
