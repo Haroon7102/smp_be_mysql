@@ -416,7 +416,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, email } = req.body;
+    const { accessToken, pageId, caption, postType, email, videoBuffer } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId) {
