@@ -424,9 +424,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        // Send an immediate response to avoid 504 timeout error
-        res.status(202).json({ message: 'Upload started, processing in the background.' });
-
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
         // Fetch the page name
@@ -481,50 +478,33 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
             } else if (postType === 'videos' || postType === 'reels') {
-                // Send an immediate response for videos to avoid timeout
-                const videoBuffer = files[0].buffer;
+                if (req.files && req.files.length > 0) {
+                    // Send response to client immediately
+                    res.json({ success: true, message: 'Video upload started. The video will be posted shortly.' });
 
-                const formData = new FormData();
-                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
-                if (caption) formData.append('description', caption);
+                    // Run video upload and post creation in the background
+                    (async () => {
+                        try {
+                            // Upload video to Facebook
+                            const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                            console.log('Video uploaded successfully, videoId:', videoId);
 
-                const videoResponse = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    }
-                );
+                            // Create the post on Facebook with the uploaded video
+                            const postId = await createVideoPost(pageId, pageAccessToken, videoId);
+                            console.log('Post created successfully, postId:', postId);
 
-                const videoResult = await videoResponse.json();
-                if (!videoResponse.ok || !videoResult.id) {
-                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                            // Save the post details to the database
+                            await savePostToDatabase(req.user.email, pageId, pageName, caption, pageAccessToken, [videoId], postId);
+                            console.log('Post details saved to the database.');
+                        } catch (error) {
+                            console.error('Error during video upload or post creation:', error.message);
+                            // You can add retry logic or save this error to a log for debugging
+                        }
+                    })();
                 }
-
-                mediaIds.push(videoResult.id);
-                postId = videoResult.id; // For video/reel posts, the video itself is the post
             }
-        } else if (caption) {
-            // If no files are uploaded, but a caption is provided, post only the caption
-            const postData = {
-                message: caption,
-                access_token: pageAccessToken,
-            };
-
-            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                method: 'POST',
-                body: new URLSearchParams(postData),
-            });
-
-            const postResult = await postResponse.json();
-            if (!postResponse.ok) {
-                throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
-            }
-
-            postId = postResult.id; // Post ID for the caption-only post
         } else {
-            return res.status(400).json({ error: 'No files uploaded and no caption provided. Please upload at least one file or provide a caption.' });
+            return res.status(400).json({ error: 'No files uploaded. Please upload at least one file.' });
         }
 
         // Save post details in the database
@@ -541,7 +521,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
-
 
 
 
