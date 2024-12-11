@@ -378,7 +378,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 };
 
 // Save post data to the database
-const savePostToDatabase = async (email, pageId, pageName, message, accessToken, media, postId) => {
+const savePostToDatabase = async (email, pageId, pageName, message, accessToken, mediaIds, postId) => {
     try {
         // Create the new post entry in the database
         const newPost = await FbPost.create({
@@ -387,7 +387,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
             pageName,     // Page name to which the post was made
             message,      // Message of the post
             accessToken,  // Access token used for posting
-            media,        // Media (image/video) IDs
+            media: mediaIds,        // Media (image/video) IDs
             postId,       // Facebook post ID
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -415,7 +415,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        let media = [];
+        let mediaIds = [];
         if (files && files.length > 0) {
             media = files.map(file => file.originalname);  // Just using the file names for now; adjust to suit your needs
         }
@@ -493,7 +493,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         console.log('Post created successfully, postId:', postId);
 
                         // After the post is created on Facebook, save to the database
-                        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+                        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(mediaIds), postType, postId);
 
                     } catch (error) {
                         console.error('Error during video upload or post creation:', error.message);
@@ -529,7 +529,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         // Now save the post details to the database only after the post has been successfully created on Facebook
         // This ensures that the post information (with or without media) is saved to the database
-        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(mediaIds), postType, postId);
 
         return res.json({ success: true, postId: postId });
     } catch (error) {
