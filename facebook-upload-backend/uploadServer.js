@@ -403,6 +403,8 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
+    console.log('Request body received:', req.body); // Log the request body
+    console.log('Request files received:', req.files); // Log any attached files
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
 
