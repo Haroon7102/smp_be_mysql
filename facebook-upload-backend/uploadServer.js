@@ -218,7 +218,10 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 
 const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
+        // Create the form data
         const formData = new FormData();
+
+        // Append the video buffer as a readable stream
         formData.append("source", videoBuffer, {
             filename: "video.mp4", // Specify filename
             contentType: "video/mp4", // MIME type
@@ -226,13 +229,18 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         formData.append("description", caption || '');
         formData.append("access_token", pageAccessToken);
 
+        // Send the POST request to Facebook using fetch
         const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders(),
+            headers: {
+                // Manually add content type for the form
+                'Content-Type': 'multipart/form-data', // This will allow `form-data` to correctly encode the multipart data
+                ...formData.getHeaders(), // Use any additional headers that might be needed
+            },
         });
 
-
+        // Handle the response
         const result = await response.json();
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
@@ -242,13 +250,11 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
     } catch (error) {
         console.error("Error uploading video:", error);
         throw error;
-    }
-    finally {
-        // Ensure cleanup after the upload
-        // Cleanup any temporary resources here, like removing temp files if necessary
-        // For example, remove files from server memory if stored
+    } finally {
+        // Cleanup temporary resources if necessary
     }
 };
+
 
 
 // Function to create a video post on Facebook
