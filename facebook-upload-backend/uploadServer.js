@@ -424,6 +424,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 
     try {
+        // Send an immediate response to avoid 504 timeout error
+        res.status(202).json({ message: 'Upload started, processing in the background.' });
+
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
         // Fetch the page name
@@ -478,6 +481,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
             } else if (postType === 'videos' || postType === 'reels') {
+                // Send an immediate response for videos to avoid timeout
                 const videoBuffer = files[0].buffer;
 
                 const formData = new FormData();
@@ -501,8 +505,26 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 mediaIds.push(videoResult.id);
                 postId = videoResult.id; // For video/reel posts, the video itself is the post
             }
+        } else if (caption) {
+            // If no files are uploaded, but a caption is provided, post only the caption
+            const postData = {
+                message: caption,
+                access_token: pageAccessToken,
+            };
+
+            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                method: 'POST',
+                body: new URLSearchParams(postData),
+            });
+
+            const postResult = await postResponse.json();
+            if (!postResponse.ok) {
+                throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
+            }
+
+            postId = postResult.id; // Post ID for the caption-only post
         } else {
-            return res.status(400).json({ error: 'No files uploaded. Please upload at least one file.' });
+            return res.status(400).json({ error: 'No files uploaded and no caption provided. Please upload at least one file or provide a caption.' });
         }
 
         // Save post details in the database
@@ -519,6 +541,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
