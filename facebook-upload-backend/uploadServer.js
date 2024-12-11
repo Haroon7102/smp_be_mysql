@@ -381,7 +381,7 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 const savePostToDatabase = async (email, pageId, pageName, message, accessToken, mediaIds, postId) => {
     try {
         if (!Array.isArray(mediaIds)) {
-            mediaIds = [];  // Set it to an empty array if mediaIds is not an array
+            mediaIds = []; // Set it to an empty array if mediaIds is not an array
         }
         // Create the new post entry in the database
         const newPost = await FbPost.create({
@@ -390,7 +390,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
             pageName,     // Page name to which the post was made
             message,      // Message of the post
             accessToken,  // Access token used for posting
-            media: mediaIds,        // Media (image/video) IDs
+            media: JSON.stringify(mediaIds), // Media (image/video) IDs (ensure it's a stringified JSON array)
             postId,       // Facebook post ID
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -402,8 +402,6 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
         throw error;
     }
 };
-
-
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
@@ -441,7 +439,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     if (result.id) {
                         return { media_fbid: result.id }; // Return the required object
                     } else {
-                        throw new Error(`Photo upload failed: ${result.error.message}`);
+                        throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
                 });
 
@@ -462,11 +460,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 const postResult = await postResponse.json();
                 if (!postResponse.ok) {
-                    throw new Error(`Failed to create post: ${postResult.error.message}`);
+                    throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
                 }
 
                 postId = postResult.id;
-            } else if (postType === 'videos') {
+            } else if (postType === 'videos' || postType === 'reels') {
                 const videoBuffer = files[0].buffer;
 
                 const formData = new FormData();
@@ -484,42 +482,18 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 const videoResult = await videoResponse.json();
                 if (!videoResponse.ok || !videoResult.id) {
-                    throw new Error(`Video upload failed: ${videoResult.error.message}`);
+                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                 }
 
                 mediaIds.push(videoResult.id);
-                postId = videoResult.id; // For video posts, the video itself is the post
-            } else if (postType === 'reels') {
-                // Similar logic for reels
-                const reelBuffer = files[0].buffer;
-
-                const formData = new FormData();
-                formData.append('source', reelBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
-                if (caption) formData.append('description', caption);
-
-                const reelResponse = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/videos?upload_phase=start&access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    }
-                );
-
-                const reelResult = await reelResponse.json();
-                if (!reelResponse.ok || !reelResult.id) {
-                    throw new Error(`Reel upload failed: ${reelResult.error.message}`);
-                }
-
-                mediaIds.push(reelResult.id);
-                postId = reelResult.id;
+                postId = videoResult.id; // For video/reel posts, the video itself is the post
             }
         } else {
             return res.status(400).json({ error: 'No files uploaded. Please upload at least one file.' });
         }
 
         // Save post details in the database
-        await savePostToDatabase(email, pageId, postId, caption, accessToken, JSON.stringify(mediaIds), postType);
+        await savePostToDatabase(email, pageId, null, caption, accessToken, mediaIds, postId);
 
         return res.json({
             success: true,
@@ -532,6 +506,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
