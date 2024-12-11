@@ -473,7 +473,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
                 postId = postResult.id;  // Store the Facebook post ID
             }
-            await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+            // await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
 
         } else if (postType === 'videos') {
             if (files && files.length > 0) {
