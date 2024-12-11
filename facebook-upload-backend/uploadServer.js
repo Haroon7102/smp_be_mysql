@@ -406,44 +406,37 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
 
-    // Assuming the logged-in user's email is stored in req.user
-    // const { email } = req.body;
-
-
+    // Ensure email is provided
     if (!email) {
         return res.status(400).json({ error: 'Email is required.' });
     }
 
-    // If accessToken or pageId are missing, handle the case where they are optional
+    // If accessToken or pageId are missing, handle the request without Facebook interaction
     if (!accessToken || !pageId) {
-        // If no access token or page ID, we won't interact with Facebook
-        try {
-            // Just respond that the email was received, no Facebook interaction
-            return res.json({
-                success: true,
-                message: 'Email received, no Facebook post created as no accessToken or pageId provided.'
-            });
-        } catch (error) {
-            console.error('Error when processing the email only request:', error);
-            return res.status(500).json({ error: 'Error processing request without Facebook interaction.', details: error.message });
-        }
+        console.log('No accessToken or pageId provided, handling email-only request.');
+        return res.json({
+            success: true,
+            message: 'Email received. No Facebook interaction performed as accessToken and pageId were not provided.',
+        });
     }
+
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Fetch the page details to get the page name
+        // Fetch the page name for database purposes
         const pageDetails = await fetch(`https://graph.facebook.com/${pageId}?fields=name&access_token=${pageAccessToken}`)
             .then(response => response.json())
             .then(result => result.name)
             .catch(error => {
-                console.error('Error fetching page details:', error);
-                throw new Error('Error fetching page details');
+                console.error('Error fetching page details:', error.message);
+                throw new Error('Failed to fetch page details.');
             });
 
         let postId;
 
         if (postType === 'feed') {
+            // Handle feed posts (photos or text)
             if (files && files.length > 0) {
                 const photoIds = [];
                 const uploadPromises = files.map(file => {
@@ -465,10 +458,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         });
                 });
 
-                // Await all uploads
+                // Wait for all uploads to complete
                 await Promise.all(uploadPromises);
 
-                // Create a single post attaching all photos
+                // Create a post with the attached photos
                 const postData = {
                     attached_media: JSON.stringify(photoIds),
                     access_token: pageAccessToken,
@@ -487,34 +480,35 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post data to the database
+                // Save post to the database
                 await savePostToDatabase(email, pageId, pageDetails, caption, JSON.stringify(photoIds), postId);
 
                 return res.json({ success: true, postId });
             } else {
-                // If no files, just post the caption
+                // Post only a caption if no files are provided
                 const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
                 postId = postResult.id;
 
-                // Save post data to the database
+                // Save post to the database
                 await savePostToDatabase(email, pageId, pageDetails, caption, null, postId);
 
                 return res.json({ result: postResult });
             }
         } else if (postType === 'videos') {
+            // Handle video posts
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
 
-                // Send response to client immediately
+                // Respond to client immediately
                 res.json({ success: true, message: 'Video upload started. The video will be posted shortly.' });
 
-                // Run upload logic in the background
+                // Process video upload in the background
                 (async () => {
                     try {
                         const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
                         const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
 
-                        // Save post data to the database
+                        // Save post to the database
                         await savePostToDatabase(email, pageId, pageDetails, caption, videoId, postId);
                     } catch (error) {
                         console.error('Error during video upload or post creation:', error.message);
@@ -527,10 +521,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             return res.status(400).json({ error: 'Invalid post type.' });
         }
     } catch (error) {
-        console.error('Error during upload:', error);
+        console.error('Error during upload:', error.message);
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
