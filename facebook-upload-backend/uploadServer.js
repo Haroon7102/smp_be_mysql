@@ -419,6 +419,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         let mediaIds = [];  // Initialize mediaIds here to collect the media IDs
+        let postId = null;   // Ensure postId is defined
 
         if (files && files.length > 0) {
             // For photo uploads (Feed posts)
@@ -485,6 +486,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         // Assign video ID to mediaIds
                         mediaIds.push(videoId);
 
+                        // Wait for saving post to the database
                         await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(mediaIds), postType, postId);
                     } catch (error) {
                         console.error('Error during video upload or post creation:', error.message);
@@ -514,12 +516,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         // Now save the post details to the database only after the post has been successfully created on Facebook
         await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(mediaIds), postType, postId);
 
-        return res.json({ success: true, postId: postId });
+        return res.json({ success: true, postId: postId });  // Send final response only after all operations are done
     } catch (error) {
         console.error('Error during upload:', error);
         res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
