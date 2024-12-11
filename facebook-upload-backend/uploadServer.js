@@ -534,8 +534,21 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 }
             }
         } else {
-            const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-            return res.json({ result: postResult });
+            {
+                // Post a message to Facebook (text-only post)
+                const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+                postId = postResult.id; // Assume postResult contains the post ID
+
+                // Save the post to the database (no media ID)
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+
+                return res.json({
+                    success: true,
+                    postId: postId,
+                    message: 'Post created successfully with message only.',
+                });
+            }
+
         }
     } catch (error) {
         console.error('Error during upload:', error);
