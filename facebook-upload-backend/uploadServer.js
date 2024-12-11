@@ -436,7 +436,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         let postId;
 
         if (postType === 'feed') {
-            // Handle feed posts (photos or text)
+            // Handle feed posts (photos or text) eith e
             if (files && files.length > 0) {
                 const photoIds = [];
                 const uploadPromises = files.map(file => {
