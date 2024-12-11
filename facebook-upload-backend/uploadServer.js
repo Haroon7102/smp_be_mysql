@@ -218,10 +218,7 @@ const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
 
 const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, caption = '') => {
     try {
-        // Create the form data
         const formData = new FormData();
-
-        // Append the video buffer as a readable stream
         formData.append("source", videoBuffer, {
             filename: "video.mp4", // Specify filename
             contentType: "video/mp4", // MIME type
@@ -229,18 +226,13 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
         formData.append("description", caption || '');
         formData.append("access_token", pageAccessToken);
 
-        // Send the POST request to Facebook using fetch
         const response = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
             method: 'POST',
             body: formData,
-            headers: {
-                // Manually add content type for the form
-                'Content-Type': 'multipart/form-data', // This will allow `form-data` to correctly encode the multipart data
-                ...formData.getHeaders(), // Use any additional headers that might be needed
-            },
+            headers: formData.getHeaders(),
         });
 
-        // Handle the response
+
         const result = await response.json();
         if (!response.ok) {
             throw new Error(`Video upload failed: ${result.error.message}`);
@@ -250,11 +242,13 @@ const uploadVideoToFacebook = async (pageId, pageAccessToken, videoBuffer, capti
     } catch (error) {
         console.error("Error uploading video:", error);
         throw error;
-    } finally {
-        // Cleanup temporary resources if necessary
+    }
+    finally {
+        // Ensure cleanup after the upload
+        // Cleanup any temporary resources here, like removing temp files if necessary
+        // For example, remove files from server memory if stored
     }
 };
-
 
 
 // Function to create a video post on Facebook
@@ -422,7 +416,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, email, videoBuffer } = req.body;
+    const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId) {
@@ -484,30 +478,28 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
             } else if (postType === 'videos' || postType === 'reels') {
-                if (req.files && req.files.length > 0) {
-                    // Send response to client immediately
-                    res.json({ success: true, message: 'Video upload started. The video will be posted shortly.' });
+                const videoBuffer = files[0].buffer;
 
-                    // Run video upload and post creation in the background
-                    (async () => {
-                        try {
-                            // Upload video to Facebook
-                            const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
-                            console.log('Video uploaded successfully, videoId:', videoId);
+                const formData = new FormData();
+                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
+                if (caption) formData.append('description', caption);
 
-                            // Create the post on Facebook with the uploaded video
-                            const postId = await createVideoPost(pageId, pageAccessToken, videoId);
-                            console.log('Post created successfully, postId:', postId);
+                const videoResponse = await fetch(
+                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    }
+                );
 
-                            // Save the post details to the database
-                            await savePostToDatabase(req.user.email, pageId, pageName, caption, pageAccessToken, [videoId], postId);
-                            console.log('Post details saved to the database.');
-                        } catch (error) {
-                            console.error('Error during video upload or post creation:', error.message);
-                            // You can add retry logic or save this error to a log for debugging
-                        }
-                    })();
+                const videoResult = await videoResponse.json();
+                if (!videoResponse.ok || !videoResult.id) {
+                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                 }
+
+                mediaIds.push(videoResult.id);
+                postId = videoResult.id; // For video/reel posts, the video itself is the post
             }
         } else {
             return res.status(400).json({ error: 'No files uploaded. Please upload at least one file.' });
