@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
         },
         media: {
-            type: DataTypes.TEXT,
+            type: DataTypes.JSON,
             allowNull: true,
         },
         postTypes: {

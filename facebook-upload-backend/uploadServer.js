@@ -380,6 +380,9 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
 // Save post data to the database
 const savePostToDatabase = async (email, pageId, pageName, message, accessToken, mediaIds, postId) => {
     try {
+        if (!Array.isArray(mediaIds)) {
+            mediaIds = [];  // Set it to an empty array if mediaIds is not an array
+        }
         // Create the new post entry in the database
         const newPost = await FbPost.create({
             email,        // Email of the person making the post
@@ -404,7 +407,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, videoPath, email } = req.body;  // Include email for database saving
+    const { accessToken, pageId, caption, postType, videoPath, email } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId) {
@@ -415,9 +418,31 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        let mediaIds = [];
+        let mediaIds = []; // Initialize mediaIds as an empty array
         if (files && files.length > 0) {
-            media = files.map(file => file.originalname);  // Just using the file names for now; adjust to suit your needs
+            // Capture the media IDs (photo or video) here
+            const uploadPromises = files.map(file => {
+                const formData = new FormData();
+                formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+                formData.append('published', 'false'); // Optional, set to 'false' for drafts
+
+                return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: formData.getHeaders(),
+                })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result && result.id) {
+                            mediaIds.push(result.id); // Add the media ID to mediaIds array
+                        } else {
+                            throw new Error(`Photo upload failed: ${result.error.message}`);
+                        }
+                    });
+            });
+
+            // Wait for all photo uploads to complete
+            await Promise.all(uploadPromises);
         }
 
         let postId; // Declare postId to store the post created on Facebook
@@ -425,35 +450,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         if (postType === 'feed') {
             // Handle photo upload for feed posts
             if (files && files.length > 0) {
-                const photoIds = [];
+                const photoIds = mediaIds.map(mediaId => ({ media_fbid: mediaId })); // Format the media IDs for Facebook
 
-                const uploadPromises = files.map(file => {
-                    const formData = new FormData();
-                    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-                    formData.append('published', 'false');
-
-                    return fetch(`https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    })
-                        .then(response => response.json())
-                        .then(result => {
-                            if (!result.id) {
-                                throw new Error(`Photo upload failed: ${result.error.message}`);
-                            }
-                            photoIds.push({ media_fbid: result.id });
-                        });
-                });
-
-                // Await all uploads
-                await Promise.all(uploadPromises);
-
-                // Create a single post attaching all photos
                 const postData = {
                     attached_media: JSON.stringify(photoIds),
                     access_token: pageAccessToken,
                 };
+
                 if (caption) postData.message = caption;
 
                 const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
@@ -466,15 +469,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     throw new Error(`Failed to create post: ${postResult.error.message}`);
                 }
 
-                postId = postResult.id;  // Store the Facebook post ID
-
+                postId = postResult.id; // Store the Facebook post ID
             } else {
                 // If no files, just post the caption
                 const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-                postId = postResult.id;  // Store the Facebook post ID
+                postId = postResult.id; // Store the Facebook post ID
             }
-            // await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
-
         } else if (postType === 'videos') {
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
@@ -539,6 +539,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         // Cleanup after the whole process
     }
 });
+
 
 
 
