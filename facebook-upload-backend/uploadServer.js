@@ -402,45 +402,31 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 
 
+// Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
-    console.log('Request body received:', req.body); // Log the request body
-    console.log('Request files received:', req.files); // Log any attached files
-    const { accessToken, pageId, caption, postType, email } = req.body;
+    const { accessToken, pageId, caption, postType, videoPath, email } = req.body;  // Include email for database saving
     const files = req.files;
 
-    // Ensure email is provided
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required.' });
-    }
-
-    // If accessToken or pageId are missing, handle the request without Facebook interaction
     if (!accessToken || !pageId) {
-        console.log('No accessToken or pageId provided, handling email-only request.');
-        return res.json({
-            success: true,
-            message: 'Email received. No Facebook interaction performed as accessToken and pageId were not provided.',
-        });
+        return res.status(400).json({ error: 'Access token and page ID are required.' });
     }
 
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Fetch the page name for database purposes
-        const pageDetails = await fetch(`https://graph.facebook.com/${pageId}?fields=name&access_token=${pageAccessToken}`)
-            .then(response => response.json())
-            .then(result => result.name)
-            .catch(error => {
-                console.error('Error fetching page details:', error.message);
-                throw new Error('Failed to fetch page details.');
-            });
+        let media = [];
+        if (files && files.length > 0) {
+            media = files.map(file => file.originalname);  // Just using the file names for now; adjust to suit your needs
+        }
 
-        let postId;
+        let postId; // Declare postId to store the post created on Facebook
 
         if (postType === 'feed') {
-            // Handle feed posts (photos or text) eith e
+            // Handle photo upload for feed posts
             if (files && files.length > 0) {
                 const photoIds = [];
+
                 const uploadPromises = files.map(file => {
                     const formData = new FormData();
                     formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
@@ -460,10 +446,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         });
                 });
 
-                // Wait for all uploads to complete
+                // Await all uploads
                 await Promise.all(uploadPromises);
 
-                // Create a post with the attached photos
+                // Create a single post attaching all photos
                 const postData = {
                     attached_media: JSON.stringify(photoIds),
                     access_token: pageAccessToken,
@@ -480,38 +466,35 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     throw new Error(`Failed to create post: ${postResult.error.message}`);
                 }
 
-                postId = postResult.id;
+                postId = postResult.id;  // Store the Facebook post ID
 
-                // Save post to the database
-                await savePostToDatabase(email, pageId, pageDetails, caption, JSON.stringify(photoIds), postId);
-
-                return res.json({ success: true, postId });
             } else {
-                // Post only a caption if no files are provided
+                // If no files, just post the caption
                 const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-                postId = postResult.id;
-
-                // Save post to the database
-                await savePostToDatabase(email, pageId, pageDetails, caption, null, postId);
-
-                return res.json({ result: postResult });
+                postId = postResult.id;  // Store the Facebook post ID
             }
+            await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+
         } else if (postType === 'videos') {
-            // Handle video posts
             if (files && files.length > 0) {
                 const videoBuffer = files[0].buffer;
 
-                // Respond to client immediately
+                // Send response to client immediately
                 res.json({ success: true, message: 'Video upload started. The video will be posted shortly.' });
 
-                // Process video upload in the background
+                // Run upload logic in the background
                 (async () => {
                     try {
+                        console.log('Starting video upload...');
                         const videoId = await uploadVideoToFacebook(pageId, pageAccessToken, videoBuffer, caption);
-                        const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                        console.log('Video uploaded successfully, videoId:', videoId);
 
-                        // Save post to the database
-                        await savePostToDatabase(email, pageId, pageDetails, caption, videoId, postId);
+                        const postId = await createVideoPost(pageId, pageAccessToken, videoId, caption);
+                        console.log('Post created successfully, postId:', postId);
+
+                        // After the post is created on Facebook, save to the database
+                        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+
                     } catch (error) {
                         console.error('Error during video upload or post creation:', error.message);
                     }
@@ -519,14 +502,44 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             } else {
                 return res.status(400).json({ error: 'Video file is required for video posts.' });
             }
+        } else if (postType === 'reels') {
+            if (files && files.length > 0) {
+                const videoBuffer = files[0].buffer; // Get the video buffer from the uploaded file
+                const caption = req.body.caption || ''; // Optional caption
+
+                // Send response to client immediately
+                res.json({ success: true, message: 'Reel upload started. The reel will be posted shortly.' });
+
+                // Run upload logic in the background
+                (async () => {
+                    try {
+                        console.log('Starting reel upload...');
+                        const videoId = await uploadReelToFacebook(pageId, pageAccessToken, videoBuffer, caption);
+                        console.log('Reel uploaded successfully, videoId:', videoId);
+                    } catch (error) {
+                        console.error('Error during reel upload:', error.message);
+                    }
+                })();
+            } else {
+                return res.status(400).json({ error: 'Video file is required for reel posts.' });
+            }
         } else {
             return res.status(400).json({ error: 'Invalid post type.' });
         }
+
+        // Now save the post details to the database only after the post has been successfully created on Facebook
+        // This ensures that the post information (with or without media) is saved to the database
+        await savePostToDatabase(email, pageId, pageId, caption, accessToken, JSON.stringify(media), postType, postId);
+
+        return res.json({ success: true, postId: postId });
     } catch (error) {
-        console.error('Error during upload:', error.message);
+        console.error('Error during upload:', error);
         res.status(500).json({ error: 'Upload failed', details: error.message });
+    } finally {
+        // Cleanup after the whole process
     }
 });
+
 
 
 
