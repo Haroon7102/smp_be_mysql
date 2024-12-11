@@ -376,6 +376,17 @@ const getPageAccessToken = async (userAccessToken, pageId) => {
         throw error;
     }
 };
+const fetchPageName = async (pageId, accessToken) => {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${pageId}?fields=name&access_token=${accessToken}`);
+    const result = await response.json();
+
+    if (response.ok && result.name) {
+        return result.name; // Return the page name
+    } else {
+        throw new Error(`Failed to fetch page name: ${result.error ? result.error.message : 'Unknown error'}`);
+    }
+};
+
 
 // Save post data to the database
 const savePostToDatabase = async (email, pageId, pageName, message, accessToken, mediaIds, postId) => {
@@ -415,6 +426,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     try {
         // Fetch the page access token using the user's access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        // Fetch the page name
+        const pageName = await fetchPageName(pageId, pageAccessToken);
 
         let mediaIds = [];
         let postId = null;
@@ -493,7 +506,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         }
 
         // Save post details in the database
-        await savePostToDatabase(email, pageId, null, caption, accessToken, mediaIds, postId);
+        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
 
         return res.json({
             success: true,
