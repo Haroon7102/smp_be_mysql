@@ -520,15 +520,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     });
 
                     // Save post details in the background (non-blocking)
-                    (async () => {
-                        try {
-                            // Save post data in the database asynchronously
-                            await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
-                        } catch (dbError) {
+                    savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId)
+                        .then(() => {
+                            console.log('Post successfully saved to database.');
+                        })
+                        .catch((dbError) => {
                             console.error('Error saving post to database:', dbError);
-                            // Optional: You might want to handle logging or retry logic here
-                        }
-                    })();
+                        });
 
                 } catch (error) {
                     console.error('Error during video upload:', error);
@@ -543,6 +541,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
