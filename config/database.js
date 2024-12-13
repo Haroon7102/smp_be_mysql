@@ -17,6 +17,12 @@ const sequelize = new Sequelize('fyp', 'avnadmin', 'AVNS_8rvjJLYgYtsAun2UQpE', {
     port: 22896,
     dialectModule: mysql2,
     logging: false, // Set to false to disable logging
+    pool: {
+        max: 10, // Max number of active connections
+        min: 0,  // Min number of idle connections
+        idle: 10000, // Idle time in ms before releasing a connection
+        acquire: 30000, // Max time in ms to acquire a connection
+    },
 
 });
 
