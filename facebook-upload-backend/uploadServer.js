@@ -511,14 +511,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     mediaIds.push(videoResult.id);
                     postId = videoResult.id; // For video/reel posts, the video itself is the post
 
+                    await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+
                     // Send immediate response to client
-                    savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId)
-                        .then(() => {
-                            console.log('Post successfully saved to database.');
-                        })
-                        .catch((dbError) => {
-                            console.error('Error saving post to database:', dbError);
-                        });
 
                     res.json({
                         success: true,
@@ -526,6 +521,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         message: 'Video upload started. The post will be created shortly.',
                         mediaIds: mediaIds,
                     });
+                    // savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId)
+                    //     .then(() => {
+                    //         console.log('Post successfully saved to database.');
+                    //     })
+                    //     .catch((dbError) => {
+                    //         console.error('Error saving post to database:', dbError);
+                    //     });
 
                     // Save post details in the background (non-blocking)
 
