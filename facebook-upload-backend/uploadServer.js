@@ -509,7 +509,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Add video ID to mediaIds
                     mediaIds.push(videoResult.id);
-                    postId = videoResult.id; // For video/reel posts, the video itself is the post
+                    postId = videoResult.id; // For video/reel posts, the video itself is the post then
 
                     // Send immediate response to client
                     res.json({
