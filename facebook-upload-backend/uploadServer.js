@@ -520,7 +520,15 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         message: 'Video upload started. The post will be created shortly.',
                         mediaIds: mediaIds,
                     });
-                    await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                    setImmediate(async () => {
+                        try {
+                            await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                            console.log('Post successfully saved to the database.');
+                        } catch (dbError) {
+                            console.error('Error saving post to the database:', dbError);
+                        }
+                    });
+                    // await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
                     // savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId)
                     //     .then(() => {
                     //         console.log('Post successfully saved to database.');
