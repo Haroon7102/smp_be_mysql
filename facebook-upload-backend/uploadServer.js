@@ -433,10 +433,20 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         if (files && files.length > 0) {
             if (postType === 'feed') {
+                // Validate files
+                files.forEach((file, index) => {
+                    if (!file.buffer || !file.mimetype) {
+                        throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
+                    }
+                });
+
                 // Handle photo uploads
                 const photoUploads = files.map(async (file) => {
                     const formData = new FormData();
-                    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+                    formData.append('source', file.buffer, {
+                        filename: file.originalname || 'photo.jpg',
+                        contentType: file.mimetype || 'image/jpeg',
+                    });
                     formData.append('published', 'false'); // Upload but do not publish
 
                     const response = await fetch(
@@ -449,17 +459,16 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     );
 
                     const result = await response.json();
-                    if (result.id) {
-                        return { media_fbid: result.id }; // Return the photo ID for attachment
-                    } else {
+                    if (!response.ok || !result.id) {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
+                    return { media_fbid: result.id };
                 });
 
-                // Wait for all photos to be uploaded and collect media IDs
+                // Wait for all uploads to finish
                 mediaIds = await Promise.all(photoUploads);
 
-                // Create a post with the uploaded photos
+                // Create the post with all attached photos
                 const postData = {
                     attached_media: JSON.stringify(mediaIds),
                     access_token: pageAccessToken,
@@ -472,13 +481,20 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 });
 
                 const postResult = await postResponse.json();
-                if (!postResponse.ok) {
+                if (!postResponse.ok || !postResult.id) {
                     throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
                 }
+
                 postId = postResult.id;
 
-                // Save to database
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds.map(m => m.media_fbid), postId);
+                // Save post to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                return res.json({
+                    success: true,
+                    postId: postId,
+                    message: 'Post created successfully with photos.',
+                    mediaIds: mediaIds,
+                });
             } else if (postType === 'videos' || postType === 'reels') {
                 // Handle video uploads (only one video at a time)
                 const videoBuffer = files[0].buffer;
