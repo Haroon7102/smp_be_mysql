@@ -549,7 +549,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 router.get('/fetch-posts', async (req, res) => {
     try {
         // Assuming the logged-in user's email is sent in the request headers
-        const email = req.headers.email;
+        const { email } = req.body;
 
         if (!email) {
             return res.status(400).json({ error: 'Email is required to fetch posts.' });
