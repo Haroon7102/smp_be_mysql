@@ -545,29 +545,38 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 
+// Fetch posts for the logged-in user
 router.get('/fetch-posts', async (req, res) => {
     try {
-        // Query the database to get all posts (no email filter)
+        // Assuming the logged-in user's email is sent in the request headers
+        const email = req.headers.email;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required to fetch posts.' });
+        }
+
+        // Query the database to get posts for the logged-in user
         const posts = await FbPost.findAll({
-            attributes: ['pageName', 'createdAt', 'message', 'media'],
-            order: [['createdAt', 'DESC']], // To order posts by creation time
+            where: { email }, // Filter posts by email of the logged-in user
+            attributes: ['pageName', 'createdAt', 'message', 'media', 'postId'],
+            order: [['createdAt', 'DESC']], // Order posts by creation time
         });
 
-        // If no posts found
         if (!posts.length) {
             return res.status(200).json({
                 success: true,
-                message: 'No posts found.',
+                message: 'No posts found for this user.',
                 posts: []
             });
         }
 
-        // Map through posts and retrieve relevant data
-        const postsData = FbPost.map(post => ({
-            pageName: FbPost.pageName,
-            time: FbPost.createdAt,
-            caption: FbPost.message || '',
-            media: FbPost.media || [],  // Array of media (photos/videos)
+        // Format the posts data for the response
+        const postsData = posts.map(post => ({
+            pageName: post.pageName,
+            time: post.createdAt,
+            caption: post.message || '',
+            media: JSON.parse(post.media) || [], // Convert stringified JSON back to array
+            postId: post.postId // Include postId for reference
         }));
 
         return res.status(200).json({
@@ -584,6 +593,7 @@ router.get('/fetch-posts', async (req, res) => {
         });
     }
 });
+
 
 
 
