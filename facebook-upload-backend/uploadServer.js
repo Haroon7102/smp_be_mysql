@@ -544,75 +544,56 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 });
 
-const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
+
+router.get('/fetch-posts', async (req, res) => {
     try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${postId}?fields=attachments&access_token=${pageAccessToken}`
-        );
+        const { email } = req.query;  // Assuming email is passed as a query parameter
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error?.message || 'Failed to fetch post media');
-        }
-
-        const attachments = data.attachments?.data || [];
-        return attachments.map((attachment) => ({
-            type: attachment.type,
-            url: attachment.url || attachment.media?.image?.src || attachment.media?.source || null,
-        }));
-    } catch (error) {
-        console.error(`Error fetching media for post ${postId}:`, error.message);
-        return []; // Return an empty array if fetching fails
-    }
-};
-
-router.get('/posts', async (req, res) => {
-    try {
-        // Explicitly check for email in body or query
-        let email = req.body ? req.body.email : undefined;  // Check in the request body
         if (!email) {
-            email = req.query ? req.query.email : undefined; // Check in the query string
-        }
-
-        const posts = await FbPost.findAll({
-            where: { email: email },
-        });
-
-        if (!posts.length) {
-            return res.status(200).json({
-                success: true,
-                message: 'No posts found for the provided email',
-                posts: [],
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required to fetch posts',
             });
         }
 
-        const postsWithMedia = await Promise.all(
-            posts.map(async (post) => {
-                const media = await fetchFacebookPostMedia(post.postId, post.accessToken);
-                return {
-                    id: post.id,
-                    pageName: post.pageName,
-                    createdAt: post.createdAt,
-                    message: post.message,
-                    media: media.map((item) => item.url),
-                };
-            })
-        );
-
-        res.status(200).json({
-            success: true,
-            posts: postsWithMedia,
+        // Query the database to get posts for the provided email
+        const posts = await FbPost.findAll({
+            where: { email: email }, // Filter by email
+            order: [['createdAt', 'DESC']], // Order by creation time (most recent first)
         });
+
+        // If no posts found
+        if (!posts.length) {
+            return res.status(200).json({
+                success: true,
+                message: 'No posts found for this email.',
+                posts: []
+            });
+        }
+
+        // Map through posts and retrieve relevant data
+        const postsData = posts.map(post => ({
+            pageName: post.pageName,
+            time: post.createdAt,
+            caption: post.message || '',
+            media: post.media || [],  // Array of media (photos/videos)
+        }));
+
+        return res.status(200).json({
+            success: true,
+            posts: postsData, // Return the formatted posts data
+        });
+
     } catch (error) {
         console.error('Error fetching posts:', error.message);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'Failed to fetch posts',
-            error: error.message,
+            error: error.message
         });
     }
 });
+
 
 
 
