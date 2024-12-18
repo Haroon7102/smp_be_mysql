@@ -569,7 +569,9 @@ const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
 
 router.get('/posts', async (req, res) => {
     try {
-        const { email } = req.query; // Assuming the email is sent as a query parameter
+        const { email } = req.body;
+
+        // const { email } = req.query; // Assuming the email is sent as a query parameter
 
         if (!email) {
             return res.status(400).json({
