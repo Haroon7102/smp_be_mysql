@@ -587,7 +587,9 @@ router.get('/posts', async (req, res) => {
         res.json(postsWithMedia);
     } catch (error) {
         console.error('Error fetching posts:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to fetch posts' });
+        res.status(500).json({
+            success: false, message: 'Failed to fetch posts', error: error.message, // Optional: Add for debugging
+        });
     }
 });
 
