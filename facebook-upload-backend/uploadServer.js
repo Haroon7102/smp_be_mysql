@@ -569,46 +569,54 @@ const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
 
 router.get('/posts', async (req, res) => {
     try {
-        const posts = await FbPost.findAll(); // Fetch all posts from the database
+        const { email } = req.query; // Assuming the email is sent as a query parameter
 
-        if (!posts || posts.length === 0) {
-            return res.status(200).json({ success: true, posts: [] });
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required to fetch posts',
+            });
         }
 
-        const postsWithMedia = await Promise.allSettled(
-            posts.map(async (post) => {
-                console.log('Fetching media for post:', post.postId, 'with token:', post.accessToken);
+        // Fetch posts based on the user's email
+        const posts = await FbPost.findAll({
+            where: {
+                email: email, // Filter by the email column in the database
+            },
+        });
 
-                // Fetch media for each post
-                const mediaResult = await fetchFacebookPostMedia(post.postId, post.accessToken);
+        if (!posts || posts.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'No posts found for the provided email',
+                posts: [],
+            });
+        }
+
+        const postsWithMedia = await Promise.all(
+            posts.map(async (post) => {
+                const media = await fetchFacebookPostMedia(post.postId, post.accessToken);
                 return {
                     id: post.id,
                     pageName: post.pageName,
                     createdAt: post.createdAt,
                     message: post.message,
-                    isScheduled: post.isScheduled || false, // Include the `isScheduled` flag
-                    media: mediaResult.map((item) => item.url).filter((url) => url !== null), // Include only valid URLs
+                    isScheduled: post.isScheduled || false,
+                    media: media.map((item) => item.url), // Include only media URLs
                 };
             })
         );
 
-        // Filter out failed promises and log errors if needed
-        const successfulPosts = postsWithMedia
-            .filter((result) => result.status === 'fulfilled')
-            .map((result) => result.value);
-
-        const failedPosts = postsWithMedia.filter((result) => result.status === 'rejected');
-        if (failedPosts.length > 0) {
-            console.error('Failed to fetch media for some posts:', failedPosts);
-        }
-
-        res.status(200).json(successfulPosts);
+        res.status(200).json({
+            success: true,
+            posts: postsWithMedia,
+        });
     } catch (error) {
         console.error('Error fetching posts:', error.message);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch posts',
-            error: error.message, // Optional: Add for debugging
+            error: error.message,
         });
     }
 });
