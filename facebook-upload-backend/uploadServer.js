@@ -547,18 +547,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
 router.get('/fetch-posts', async (req, res) => {
     try {
-        const { email } = req.query;  // Assuming email is passed as a query parameter
-
-        if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email is required to fetch posts',
-            });
-        }
-
-        // Query the database to get posts for the provided email
+        // Query the database to get all posts (no email filter)
         const posts = await FbPost.findAll({
-            where: { email: email }, // Filter by email
             order: [['createdAt', 'DESC']], // Order by creation time (most recent first)
         });
 
@@ -566,7 +556,7 @@ router.get('/fetch-posts', async (req, res) => {
         if (!posts.length) {
             return res.status(200).json({
                 success: true,
-                message: 'No posts found for this email.',
+                message: 'No posts found.',
                 posts: []
             });
         }
@@ -593,6 +583,7 @@ router.get('/fetch-posts', async (req, res) => {
         });
     }
 });
+
 
 
 
