@@ -569,13 +569,10 @@ const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
 
 router.get('/posts', async (req, res) => {
     try {
-        const { email } = req.body?.email || req.query?.email; // Accept email from body or query
-
+        // Explicitly check for email in body or query
+        let email = req.body ? req.body.email : undefined;  // Check in the request body
         if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email is required to fetch posts',
-            });
+            email = req.query ? req.query.email : undefined; // Check in the query string
         }
 
         const posts = await FbPost.findAll({
