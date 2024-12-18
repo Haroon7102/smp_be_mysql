@@ -569,9 +569,7 @@ const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
 
 router.get('/posts', async (req, res) => {
     try {
-        const { email } = req.body;
-
-        // const { email } = req.query; // Assuming the email is sent as a query parameter
+        const { email } = req.body || req.query; // Accept email from body or query
 
         if (!email) {
             return res.status(400).json({
@@ -580,14 +578,11 @@ router.get('/posts', async (req, res) => {
             });
         }
 
-        // Fetch posts based on the user's email
         const posts = await FbPost.findAll({
-            where: {
-                email: email, // Filter by the email column in the database
-            },
+            where: { email: email },
         });
 
-        if (!posts || posts.length === 0) {
+        if (!posts.length) {
             return res.status(200).json({
                 success: true,
                 message: 'No posts found for the provided email',
@@ -603,8 +598,7 @@ router.get('/posts', async (req, res) => {
                     pageName: post.pageName,
                     createdAt: post.createdAt,
                     message: post.message,
-                    isScheduled: post.isScheduled || false,
-                    media: media.map((item) => item.url), // Include only media URLs
+                    media: media.map((item) => item.url),
                 };
             })
         );
@@ -622,6 +616,7 @@ router.get('/posts', async (req, res) => {
         });
     }
 });
+
 
 
 
