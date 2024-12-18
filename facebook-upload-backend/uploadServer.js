@@ -549,7 +549,8 @@ router.get('/fetch-posts', async (req, res) => {
     try {
         // Query the database to get all posts (no email filter)
         const posts = await FbPost.findAll({
-            order: [['createdAt', 'DESC']], // Order by creation time (most recent first)
+            attributes: ['pageName', 'createdAt', 'message', 'media'],
+            order: [['createdAt', 'DESC']], // To order posts by creation time
         });
 
         // If no posts found
