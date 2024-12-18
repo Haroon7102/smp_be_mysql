@@ -559,39 +559,60 @@ const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
         const attachments = data.attachments?.data || [];
         return attachments.map((attachment) => ({
             type: attachment.type,
-            url: attachment.url || attachment.media?.image?.src || attachment.media?.source || '',
+            url: attachment.url || attachment.media?.image?.src || attachment.media?.source || null,
         }));
     } catch (error) {
         console.error(`Error fetching media for post ${postId}:`, error.message);
-        return [];
+        return []; // Return an empty array if fetching fails
     }
 };
+
 router.get('/posts', async (req, res) => {
     try {
         const posts = await FbPost.findAll(); // Fetch all posts from the database
 
-        const postsWithMedia = await Promise.all(
+        if (!posts || posts.length === 0) {
+            return res.status(200).json({ success: true, posts: [] });
+        }
+
+        const postsWithMedia = await Promise.allSettled(
             posts.map(async (post) => {
-                const media = await fetchFacebookPostMedia(post.postId, post.accessToken);
+                console.log('Fetching media for post:', post.postId, 'with token:', post.accessToken);
+
+                // Fetch media for each post
+                const mediaResult = await fetchFacebookPostMedia(post.postId, post.accessToken);
                 return {
                     id: post.id,
                     pageName: post.pageName,
                     createdAt: post.createdAt,
                     message: post.message,
                     isScheduled: post.isScheduled || false, // Include the `isScheduled` flag
-                    media: media.map((item) => item.url), // Include only media URLs
+                    media: mediaResult.map((item) => item.url).filter((url) => url !== null), // Include only valid URLs
                 };
             })
         );
 
-        res.json(postsWithMedia);
+        // Filter out failed promises and log errors if needed
+        const successfulPosts = postsWithMedia
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => result.value);
+
+        const failedPosts = postsWithMedia.filter((result) => result.status === 'rejected');
+        if (failedPosts.length > 0) {
+            console.error('Failed to fetch media for some posts:', failedPosts);
+        }
+
+        res.status(200).json(successfulPosts);
     } catch (error) {
         console.error('Error fetching posts:', error.message);
         res.status(500).json({
-            success: false, message: 'Failed to fetch posts', error: error.message, // Optional: Add for debugging
+            success: false,
+            message: 'Failed to fetch posts',
+            error: error.message, // Optional: Add for debugging
         });
     }
 });
+
 
 
 
