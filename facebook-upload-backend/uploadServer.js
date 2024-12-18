@@ -562,11 +562,11 @@ router.get('/fetch-posts', async (req, res) => {
         }
 
         // Map through posts and retrieve relevant data
-        const postsData = posts.map(post => ({
-            pageName: post.pageName,
-            time: post.createdAt,
-            caption: post.message || '',
-            media: post.media || [],  // Array of media (photos/videos)
+        const postsData = FbPost.map(post => ({
+            pageName: FbPost.pageName,
+            time: FbPost.createdAt,
+            caption: FbPost.message || '',
+            media: FbPost.media || [],  // Array of media (photos/videos)
         }));
 
         return res.status(200).json({
