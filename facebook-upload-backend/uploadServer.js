@@ -413,6 +413,52 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
         throw error;
     }
 };
+const fetchFacebookPostMedia = async (postId, pageAccessToken) => {
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${postId}?fields=attachments&access_token=${pageAccessToken}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error?.message || 'Failed to fetch post media');
+        }
+
+        const attachments = data.attachments?.data || [];
+        return attachments.map((attachment) => ({
+            type: attachment.type,
+            url: attachment.url || attachment.media?.image?.src || attachment.media?.source || '',
+        }));
+    } catch (error) {
+        console.error(`Error fetching media for post ${postId}:`, error.message);
+        return [];
+    }
+};
+router.get('/posts', async (req, res) => {
+    try {
+        const posts = await FbPost.findAll(); // Fetch all posts from the database
+
+        const postsWithMedia = await Promise.all(
+            posts.map(async (post) => {
+                const media = await fetchFacebookPostMedia(post.postId, post.accessToken);
+                return {
+                    id: post.id,
+                    pageName: post.pageName,
+                    createdAt: post.createdAt,
+                    message: post.message,
+                    isScheduled: post.isScheduled || false, // Include the `isScheduled` flag
+                    media: media.map((item) => item.url), // Include only media URLs
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
+    } catch (error) {
+        console.error('Error fetching posts:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch posts' });
+    }
+});
 
 // Route to upload files and post to Facebook
 router.post('/upload', upload.array('files', 10), async (req, res) => {
