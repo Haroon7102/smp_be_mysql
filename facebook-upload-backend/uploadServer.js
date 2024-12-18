@@ -550,7 +550,7 @@ router.get('/fetch-posts', async (req, res) => {
     try {
         // Assuming the logged-in user's email is sent in the request headers
         const { email } = req.body;
-
+        console.log("email is ", email);
         if (!email) {
             return res.status(400).json({ error: 'Email is required to fetch posts.' });
         }
