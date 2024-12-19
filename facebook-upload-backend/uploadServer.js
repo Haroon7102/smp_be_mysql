@@ -547,10 +547,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
 // Fetch posts for the logged-in userbbbbbb
 // Endpoint to fetch all posts from the database
+// Route to fetch all posts
 router.get('/posts', async (req, res) => {
     try {
         const posts = await FbPost.findAll({
-            order: [['createdAt', 'DESC']], // Latest posts first
+            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt'],
+            order: [['createdAt', 'DESC']], // Sort posts by the latest
         });
 
         res.json(posts);
@@ -559,6 +561,7 @@ router.get('/posts', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
+
 
 
 
