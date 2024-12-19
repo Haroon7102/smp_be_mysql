@@ -546,51 +546,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
 
 // Fetch posts for the logged-in userbbbbbb
-router.get('/fetch-posts', async (req, res) => {
+// Endpoint to fetch all posts from the database
+router.get('/posts', async (req, res) => {
     try {
-        // Assuming the logged-in user's email is sent in the request headers
-        const { email } = req.body;
-        console.log("email is ", email);
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required to fetch posts.' });
-        }
-
-        // Query the database to get posts for the logged-in user
         const posts = await FbPost.findAll({
-            where: { email }, // Filter posts by email of the logged-in user
-            attributes: ['pageName', 'createdAt', 'message', 'media', 'postId'],
-            order: [['createdAt', 'DESC']], // Order posts by creation time
+            order: [['createdAt', 'DESC']], // Latest posts first
         });
 
-        if (!posts.length) {
-            return res.status(200).json({
-                success: true,
-                message: 'No posts found for this user.',
-                posts: []
-            });
-        }
-
-        // Format the posts data for the response
-        const postsData = posts.map(post => ({
-            pageName: post.pageName,
-            time: post.createdAt,
-            caption: post.message || '',
-            media: JSON.parse(post.media) || [], // Convert stringified JSON back to array
-            postId: post.postId // Include postId for reference
-        }));
-
-        return res.status(200).json({
-            success: true,
-            posts: postsData, // Return the formatted posts data
-        });
-
+        res.json(posts);
     } catch (error) {
-        console.error('Error fetching posts:', error.message);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch posts',
-            error: error.message
-        });
+        console.error('Error fetching posts:', error);
+        res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
 
