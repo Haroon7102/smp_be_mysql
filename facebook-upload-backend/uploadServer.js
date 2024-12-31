@@ -557,16 +557,16 @@ router.get('/posts', async (req, res) => {
 
         const safePosts = posts.map(post => ({
             ...post.dataValues,
-            media: post.media ? JSON.parse(post.media) : null, // Ensure valid JSON
+            media: post.media ? JSON.parse(post.media) : null, // Parse media only if it's valid
         }));
 
         res.json(safePosts);
-
     } catch (error) {
-        console.error('Error fetching posts:', error);
+        console.error('Error fetching posts:', error.message);
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
+
 
 
 
