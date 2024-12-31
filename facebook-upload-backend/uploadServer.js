@@ -555,7 +555,13 @@ router.get('/posts', async (req, res) => {
             order: [['createdAt', 'DESC']], // Sort posts by the latest
         });
 
-        res.json(posts);
+        const safePosts = posts.map(post => ({
+            ...post.dataValues,
+            media: post.media ? JSON.parse(post.media) : null, // Ensure valid JSON
+        }));
+
+        res.json(safePosts);
+
     } catch (error) {
         console.error('Error fetching posts:', error);
         res.status(500).json({ error: 'Failed to fetch posts' });

@@ -6,7 +6,6 @@
     "host": "haroon-fyp-atifr454-9682.e.aivencloud.com",
     "dialect": "mysql",
     "port": 22896
-    
   },
   "test": {
     "username": "root",
@@ -22,6 +21,5 @@
     "host": "haroon-fyp-atifr454-9682.e.aivencloud.com",
     "dialect": "mysql",
     "port": 22896
-   
   }
 }
