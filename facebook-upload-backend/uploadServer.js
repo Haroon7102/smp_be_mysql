@@ -552,20 +552,29 @@ router.get('/posts', async (req, res) => {
     try {
         const posts = await FbPost.findAll({
             attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt'],
-            order: [['createdAt', 'DESC']], // Sort posts by the latest
+            order: [['createdAt', 'DESC']],
         });
 
-        const safePosts = posts.map(post => ({
-            ...post.dataValues,
-            media: post.media ? JSON.parse(post.media) : null, // Parse media only if it's valid
-        }));
+        const safePosts = posts.map(post => {
+            let media = null;
+            try {
+                media = post.media ? JSON.parse(post.media) : null; // Safely parse media
+            } catch (err) {
+                console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
+            }
+            return {
+                ...post.dataValues,
+                media,
+            };
+        });
 
         res.json(safePosts);
     } catch (error) {
-        console.error('Error fetching posts:', error.message);
+        console.error('Error fetching posts:', error);
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
+
 
 
 
