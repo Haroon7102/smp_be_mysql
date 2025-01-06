@@ -429,7 +429,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         const pageName = await fetchPageName(pageId, pageAccessToken);
 
         let mediaIds = [];
-        let mediaUrls = [];  // To store media URLs
         let postId = null;
 
         if (files && files.length > 0) {
@@ -463,16 +462,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     if (!response.ok || !result.id) {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
-
-                    // Extract media URL for the uploaded image
-                    const mediaUrl = `https://graph.facebook.com/${result.id}/picture?access_token=${pageAccessToken}`;
-                    return { media_fbid: result.id, media_url: mediaUrl };
+                    return { media_fbid: result.id };
                 });
 
                 // Wait for all uploads to finish
-                const uploadResults = await Promise.all(photoUploads);
-                mediaIds = uploadResults.map(result => result.media_fbid);
-                mediaUrls = uploadResults.map(result => result.media_url);
+                mediaIds = await Promise.all(photoUploads);
 
                 // Create the post with all attached photos
                 const postData = {
@@ -493,14 +487,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post to database with media URLs
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+                // Save post to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
                 return res.json({
                     success: true,
                     postId: postId,
                     message: 'Post created successfully with photos.',
                     mediaIds: mediaIds,
-                    mediaUrls: mediaUrls,  // Include the URLs in the response
                 });
             } else if (postType === 'videos' || postType === 'reels') {
                 // Handle video uploads (only one video at a time)
@@ -527,20 +520,16 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 postId = videoResult.id; // The video itself is the post
                 mediaIds.push(videoResult.id);
 
-                // Video URL (similar approach as photo)
-                const videoUrl = `https://www.facebook.com/${videoResult.id}`;
-                mediaUrls.push(videoUrl);
-
-                // Save to database with media URL
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+                // Save to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
             }
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
 
-            // Save to database with no media
-            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId, []);
+            // Save to database
+            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId);
         }
 
         return res.json({
@@ -548,14 +537,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             postId: postId,
             message: 'Post created successfully.',
             mediaIds: mediaIds,
-            mediaUrls: mediaUrls,  // Include the URLs in the response
         });
     } catch (error) {
         console.error('Error during upload:', error);
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
-
 
 
 // Fetch posts for the logged-in userbbbbbb
