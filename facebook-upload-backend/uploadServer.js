@@ -550,23 +550,58 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 // Route to fetch all posts
 router.get('/posts', async (req, res) => {
     try {
+        // Fetch posts from the database
         const posts = await FbPost.findAll({
             attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt'],
             order: [['createdAt', 'DESC']],
         });
 
-        const safePosts = posts.map(post => {
-            let media = null;
-            try {
-                media = post.media ? JSON.parse(post.media) : null; // Safely parse media
-            } catch (err) {
-                console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
-            }
-            return {
-                ...post.dataValues,
-                media,
-            };
-        });
+        const safePosts = await Promise.all(
+            posts.map(async (post) => {
+                let media = null;
+
+                // Safely parse media field
+                try {
+                    media = post.media ? JSON.parse(post.media) : null;
+                } catch (err) {
+                    console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
+                }
+
+                // Fetch the page access token for the current post's pageId
+                const pageTokenRecord = await PageToken.findOne({
+                    where: { pageId: post.pageId },
+                    attributes: ['accessToken'], // Assuming this column exists
+                });
+
+                const pageAccessToken = pageTokenRecord ? pageTokenRecord.accessToken : null;
+
+                let mediaUrl = null;
+                if (media && pageAccessToken) {
+                    try {
+                        // Fetch media URL using Facebook Graph API
+                        const mediaResponse = await fetch(
+                            `https://graph.facebook.com/v17.0/${media.id}?fields=url&access_token=${pageAccessToken}`
+                        );
+                        const mediaData = await mediaResponse.json();
+
+                        if (mediaData.url) {
+                            mediaUrl = mediaData.url; // Extract media URL
+                        } else {
+                            console.error(`Error fetching media for media ID ${media.id}:`, mediaData);
+                        }
+                    } catch (err) {
+                        console.error(`Failed to fetch media for post ID ${post.id}:`, err.message);
+                    }
+                }
+
+                // Return the post with additional mediaUrl field
+                return {
+                    ...post.dataValues,
+                    media,
+                    mediaUrl, // Add the fetched media URL to the response
+                };
+            })
+        );
 
         res.json(safePosts);
     } catch (error) {
