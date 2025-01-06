@@ -429,6 +429,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         const pageName = await fetchPageName(pageId, pageAccessToken);
 
         let mediaIds = [];
+        let mediaUrls = [];
         let postId = null;
 
         if (files && files.length > 0) {
@@ -468,6 +469,14 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 // Wait for all uploads to finish
                 mediaIds = await Promise.all(photoUploads);
 
+                // Fetch media URLs for photos and videos
+                for (let media of mediaIds) {
+                    const mediaUrl = await fetchMediaUrl(media.media_fbid, pageAccessToken);
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl);
+                    }
+                }
+
                 // Create the post with all attached photos
                 const postData = {
                     attached_media: JSON.stringify(mediaIds),
@@ -487,13 +496,13 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post to database
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                // Save post to database with media URLs
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaUrls, postId);
                 return res.json({
                     success: true,
                     postId: postId,
                     message: 'Post created successfully with photos.',
-                    mediaIds: mediaIds,
+                    mediaUrls: mediaUrls,
                 });
             } else if (postType === 'videos' || postType === 'reels') {
                 // Handle video uploads (only one video at a time)
@@ -520,15 +529,21 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 postId = videoResult.id; // The video itself is the post
                 mediaIds.push(videoResult.id);
 
-                // Save to database
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                // Fetch media URL for video
+                const videoUrl = await fetchMediaUrl(videoResult.id, pageAccessToken);
+                if (videoUrl) {
+                    mediaUrls.push(videoUrl);
+                }
+
+                // Save to database with media URLs
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaUrls, postId);
             }
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
 
-            // Save to database
+            // Save to database with empty media URLs (no images or videos)
             await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId);
         }
 
@@ -536,13 +551,38 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             success: true,
             postId: postId,
             message: 'Post created successfully.',
-            mediaIds: mediaIds,
+            mediaUrls: mediaUrls,
         });
     } catch (error) {
         console.error('Error during upload:', error);
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
+// Function to fetch media URLs (for photos and videos)
+const fetchMediaUrl = async (mediaFbid, accessToken) => {
+    if (!mediaFbid) {
+        console.error("Media FBID is undefined");
+        return null;
+    }
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
+        );
+        const data = await response.json();
+        if (data.source) {
+            console.log("media url is: ", data.source);
+            return data.source;
+        } else {
+            console.error("No media source found for media_fbid:", mediaFbid);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching media source:", error);
+        return null;
+    }
+};
+
 
 
 // Fetch posts for the logged-in userbbbbbb
