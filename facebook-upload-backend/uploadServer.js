@@ -580,7 +580,7 @@ router.get('/posts', async (req, res) => {
                     try {
                         // Fetch media URL using Facebook Graph API
                         const mediaResponse = await fetch(
-                            `https://graph.facebook.com/v17.0/${media.id}?fields=url&access_token=${pageAccessToken}`
+                            `https://graph.facebook.com/v21.0/${media.id}?fields=url&access_token=${pageAccessToken}`
                         );
                         const mediaData = await mediaResponse.json();
 
