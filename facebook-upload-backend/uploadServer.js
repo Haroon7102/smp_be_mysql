@@ -550,55 +550,51 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 // Route to fetch all posts
 router.get('/posts', async (req, res) => {
     try {
-        // Fetch posts from the database
+        // Fetch all posts from FbPost table
         const posts = await FbPost.findAll({
-            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt'],
+            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken'], // Include accessToken field
             order: [['createdAt', 'DESC']],
         });
 
+        // Process posts and include media URL if media exists
         const safePosts = await Promise.all(
             posts.map(async (post) => {
                 let media = null;
+                let mediaUrl = null;
 
-                // Safely parse media field
+                // Safely parse media JSON if it exists
                 try {
                     media = post.media ? JSON.parse(post.media) : null;
                 } catch (err) {
                     console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
                 }
 
-                // Fetch the page access token for the current post's pageId
-                const pageTokenRecord = await PageToken.findOne({
-                    where: { pageId: post.pageId },
-                    attributes: ['accessToken'], // Assuming this column exists
-                });
-
-                const pageAccessToken = pageTokenRecord ? pageTokenRecord.accessToken : null;
-
-                let mediaUrl = null;
-                if (media && pageAccessToken) {
+                // Retrieve media URL using Facebook API (if media and accessToken are available)
+                if (media && media.id && post.accessToken) {
                     try {
-                        // Fetch media URL using Facebook Graph API
-                        const mediaResponse = await fetch(
-                            `https://graph.facebook.com/v21.0/${media.id}?fields=url&access_token=${pageAccessToken}`
-                        );
-                        const mediaData = await mediaResponse.json();
+                        const response = await fetch(`https://graph.facebook.com/v21.0/${media.id}`, {
+                            method: 'GET',
+                            headers: {
+                                Authorization: `Bearer ${post.accessToken}`,
+                            },
+                        });
 
-                        if (mediaData.url) {
-                            mediaUrl = mediaData.url; // Extract media URL
+                        const data = await response.json();
+
+                        if (response.ok && data.source) {
+                            mediaUrl = data.source; // URL of the media
                         } else {
-                            console.error(`Error fetching media for media ID ${media.id}:`, mediaData);
+                            console.error(`Failed to fetch media for post ID ${post.id}:`, data.error?.message);
                         }
                     } catch (err) {
-                        console.error(`Failed to fetch media for post ID ${post.id}:`, err.message);
+                        console.error(`Error fetching media for post ID ${post.id}:`, err.message);
                     }
                 }
 
-                // Return the post with additional mediaUrl field
                 return {
                     ...post.dataValues,
                     media,
-                    mediaUrl, // Add the fetched media URL to the response
+                    mediaUrl, // Include media URL in response
                 };
             })
         );
@@ -609,6 +605,7 @@ router.get('/posts', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
+
 
 
 
