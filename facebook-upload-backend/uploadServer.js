@@ -423,31 +423,30 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
         throw error;
     }
 };
-const fetchVideoSource = async (mediaFbid, accessToken) => {
-    console.log("Calling fetchVideoSource for mediaFbid:", mediaFbid);  // Log to check if the function is being called
-    if (!mediaFbid) {
-        console.error("Media FBID is undefined");
-        return null;
-    }
+async function fetchVideoSource(mediaFbid, retries = 5, delay = 2000) {
     try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
-        );
+        const response = await fetch(`https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${pageAccessToken}`);
         const data = await response.json();
-        console.log("Video Fetch Response:", data); // Log full response
+
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
 
         if (data.source) {
-            console.log("Video source URL: ", data.source);
-            return data.source;
+            return data.source; // The video URL
         } else {
-            console.error("No video source found for media_fbid:", mediaFbid);
-            return null;
+            throw new Error('No video source found');
         }
     } catch (error) {
-        console.error("Error fetching video source:", error);
-        return null;
+        if (retries > 0) {
+            console.log(`Retrying video fetch for ${mediaFbid}, attempts left: ${retries}`);
+            await new Promise(resolve => setTimeout(resolve, delay)); // Wait for a short delay before retrying
+            return fetchVideoSource(mediaFbid, retries - 1, delay);
+        }
+        throw new Error('Failed to fetch video source after multiple retries');
     }
-};
+}
+
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
