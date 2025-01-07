@@ -576,10 +576,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for the uploaded video
                     console.log("Fetching media URL for video ID:", postId);
-                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken);
+                    const mediaUrl = videoResult.source; // Use the 'source' directly from the video response
 
                     if (mediaUrl) {
-                        mediaUrls.push(mediaUrl);
+                        mediaUrls.push(mediaUrl); // Save the media URL directly
                         console.log("Media URL fetched successfully:", mediaUrl);
                     } else {
                         console.warn("No media URL found for the uploaded video");
@@ -606,6 +606,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     }
                 }
             }
+
 
 
         } else {
