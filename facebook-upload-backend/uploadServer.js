@@ -576,8 +576,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for the uploaded video
                     console.log("Fetching media URL for video ID:", postId);
-                    const mediaUrl = videoResult.source; // Use the 'source' directly from the video response
-
+                    const mediaUrl = await fetchVideoSource(postId, accessToken);
                     if (mediaUrl) {
                         mediaUrls.push(mediaUrl); // Save the media URL directly
                         console.log("Media URL fetched successfully:", mediaUrl);
