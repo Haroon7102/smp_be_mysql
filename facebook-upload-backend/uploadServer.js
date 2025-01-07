@@ -399,7 +399,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
             message,
             accessToken,
             media: JSON.stringify(mediaUrls), // Save as JSON string
-            mediaUrl, // Save the first media URL (optional)
+            mediaUrl: JSON.stringify(mediaUrls), // Save the first media URL (optional)
             postId,
         });
         console.log('Post saved successfully to the database:', newPost);
@@ -458,12 +458,19 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         const pageName = await fetchPageName(pageId, pageAccessToken);
 
         let mediaIds = [];
-        let mediaUrls = [];
         let postId = null;
+        let mediaUrls = []; // Array to store media URLs
 
         if (files && files.length > 0) {
             if (postType === 'feed') {
-                // Upload photos
+                // Validate files
+                files.forEach((file, index) => {
+                    if (!file.buffer || !file.mimetype) {
+                        throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
+                    }
+                });
+
+                // Handle photo uploads
                 const photoUploads = files.map(async (file) => {
                     const formData = new FormData();
                     formData.append('source', file.buffer, {
@@ -485,23 +492,23 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     if (!response.ok || !result.id) {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
-
-                    // Fetch the media URL for the uploaded photo
-                    const mediaUrl = await fetchMediaUrl(result.id, pageAccessToken);
-
-                    return { media_fbid: result.id, media_url: mediaUrl };
+                    return { media_fbid: result.id };
                 });
 
                 // Wait for all uploads to finish
-                const mediaData = await Promise.all(photoUploads);
+                mediaIds = await Promise.all(photoUploads);
 
-                // Extract IDs and URLs separately
-                mediaIds = mediaData.map((media) => media.media_fbid);
-                mediaUrls = mediaData.map((media) => media.media_url);
+                // Fetch media URLs for images
+                for (const media of mediaIds) {
+                    const mediaUrl = await fetchMediaUrl(media.media_fbid, accessToken);
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl);
+                    }
+                }
 
-                // Create the post
+                // Create the post with all attached photos
                 const postData = {
-                    attached_media: JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))),
+                    attached_media: JSON.stringify(mediaIds),
                     access_token: pageAccessToken,
                 };
                 if (caption) postData.message = caption;
@@ -518,50 +525,55 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post to the database with media URLs
+                // Save post to database with media URLs
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
-            } else if (postType === 'videos' || postType === 'reels') {
-                // Handle video uploads
-                const videoUploads = files.map(async (file) => {
-                    const formData = new FormData();
-                    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
-                    if (caption) formData.append('description', caption);
-
-                    const videoResponse = await fetch(
-                        `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                        {
-                            method: 'POST',
-                            body: formData,
-                            headers: formData.getHeaders(),
-                        }
-                    );
-
-                    const videoResult = await videoResponse.json();
-                    if (!videoResponse.ok || !videoResult.id) {
-                        throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
-                    }
-
-                    // Fetch the video URL using the provided function
-                    const videoUrl = await fetchVideoSource(videoResult.id, pageAccessToken);
-                    return { media_fbid: videoResult.id, media_url: videoUrl };
+                return res.json({
+                    success: true,
+                    postId: postId,
+                    message: 'Post created successfully with photos.',
+                    mediaIds: mediaIds,
+                    mediaUrls: mediaUrls,
                 });
+            } else if (postType === 'videos' || postType === 'reels') {
+                // Handle video uploads (only one video at a time)
+                const videoBuffer = files[0].buffer;
 
-                const videoData = await Promise.all(videoUploads);
+                const formData = new FormData();
+                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
+                if (caption) formData.append('description', caption);
 
-                // Extract IDs and URLs separately
-                mediaIds = videoData.map((video) => video.media_fbid);
-                mediaUrls = videoData.map((video) => video.media_url);
+                const videoResponse = await fetch(
+                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    }
+                );
 
-                // Save to database
+                const videoResult = await videoResponse.json();
+                if (!videoResponse.ok || !videoResult.id) {
+                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                }
+
+                postId = videoResult.id; // The video itself is the post
+                mediaIds.push(videoResult.id);
+
+                // Fetch media URL for video
+                const mediaUrl = await fetchVideoSource(videoResult.id, accessToken);
+                if (mediaUrl) {
+                    mediaUrls.push(mediaUrl);
+                }
+
+                // Save to database with media URL
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
             }
-
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
 
-            // Save to database
+            // Save to database without media URLs
             await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId, []);
         }
 
@@ -577,6 +589,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 
