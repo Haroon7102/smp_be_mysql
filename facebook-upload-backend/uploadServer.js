@@ -476,7 +476,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 // Extract IDs and URLs separately
                 mediaIds = mediaData.map((media) => media.media_fbid);
-                const mediaUrls = mediaData.map((media) => media.media_url);
+                mediaUrls = mediaData.map((media) => media.media_url);
 
                 // Create the post
                 const postData = {
@@ -499,40 +499,36 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 // Save post to the database with media URLs
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
-
-                return res.json({
-                    success: true,
-                    postId: postId,
-                    message: 'Post created successfully with photos.',
-                    mediaIds: mediaIds,
-                    mediaUrls: mediaUrls,
-                });
-            }
-            else if (postType === 'videos' || postType === 'reels') {
+            } else if (postType === 'videos' || postType === 'reels') {
                 // Handle video uploads
-                const videoBuffer = files[0].buffer;
+                const videoUploads = files.map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('source', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+                    if (caption) formData.append('description', caption);
 
-                const formData = new FormData();
-                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
-                if (caption) formData.append('description', caption);
+                    const videoResponse = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                        {
+                            method: 'POST',
+                            body: formData,
+                            headers: formData.getHeaders(),
+                        }
+                    );
 
-                const videoResponse = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
+                    const videoResult = await videoResponse.json();
+                    if (!videoResponse.ok || !videoResult.id) {
+                        throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                     }
-                );
 
-                const videoResult = await videoResponse.json();
-                if (!videoResponse.ok || !videoResult.id) {
-                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
-                }
+                    const videoUrl = `https://www.facebook.com/${videoResult.id}`;
+                    return { media_fbid: videoResult.id, media_url: videoUrl };
+                });
 
-                postId = videoResult.id;
-                const videoUrl = `https://www.facebook.com/${videoResult.id}`;
-                mediaUrls.push(videoUrl);
+                const videoData = await Promise.all(videoUploads);
+
+                // Extract IDs and URLs separately
+                mediaIds = videoData.map((video) => video.media_fbid);
+                mediaUrls = videoData.map((video) => video.media_url);
 
                 // Save to database
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
@@ -558,6 +554,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 // Route to upload files and post to Facebook
 // router.post('/upload', upload.array('files', 10), async (req, res) => {
