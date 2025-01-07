@@ -416,6 +416,19 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
         throw error;
     }
 };
+const fetchMediaUrl = async (mediaId, accessToken) => {
+    try {
+        const response = await fetch(`https://graph.facebook.com/v21.0/${mediaId}?fields=picture&access_token=${accessToken}`);
+        const result = await response.json();
+        if (!response.ok || !result.picture) {
+            throw new Error(`Failed to fetch media URL for media ID ${mediaId}: ${result.error?.message || 'Unknown error'}`);
+        }
+        return result.picture; // The media URL
+    } catch (error) {
+        console.error("Error fetching media URL:", error.message);
+        throw error;
+    }
+};
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
@@ -436,7 +449,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         if (files && files.length > 0) {
             if (postType === 'feed') {
-                // Handle photo uploads
+                // Upload photos
                 const photoUploads = files.map(async (file) => {
                     const formData = new FormData();
                     formData.append('source', file.buffer, {
@@ -459,18 +472,22 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
 
-                    // Fetch the photo URL
-                    const mediaUrl = `https://graph.facebook.com/v21.0/${result.id}/picture?access_token=${pageAccessToken}`;
-                    mediaUrls.push(mediaUrl);
+                    // Fetch the media URL for the uploaded photo
+                    const mediaUrl = await fetchMediaUrl(result.id, pageAccessToken);
 
-                    return { media_fbid: result.id };
+                    return { media_fbid: result.id, media_url: mediaUrl };
                 });
 
-                mediaIds = await Promise.all(photoUploads);
+                // Wait for all uploads to finish
+                const mediaData = await Promise.all(photoUploads);
 
-                // Create the post with all attached photos
+                // Extract IDs and URLs separately
+                mediaIds = mediaData.map((media) => media.media_fbid);
+                const mediaUrls = mediaData.map((media) => media.media_url);
+
+                // Create the post
                 const postData = {
-                    attached_media: JSON.stringify(mediaIds),
+                    attached_media: JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))),
                     access_token: pageAccessToken,
                 };
                 if (caption) postData.message = caption;
@@ -487,8 +504,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post to database
+                // Save post to the database with media URLs
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+
                 return res.json({
                     success: true,
                     postId: postId,
@@ -496,7 +514,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     mediaIds: mediaIds,
                     mediaUrls: mediaUrls,
                 });
-            } else if (postType === 'videos' || postType === 'reels') {
+            }
+            else if (postType === 'videos' || postType === 'reels') {
                 // Handle video uploads
                 const videoBuffer = files[0].buffer;
 
