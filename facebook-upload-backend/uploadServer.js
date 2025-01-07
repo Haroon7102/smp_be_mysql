@@ -109,8 +109,6 @@
 // module.exports = router;
 
 // _______________________________________________________________.
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // For S3 operations
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner'); // For generating pre-signed URLs
 const express = require('express');
 const fetch = require('node-fetch');
 const fs = require('fs'); // File system module
@@ -130,7 +128,7 @@ const agent = new https.Agent({
 
 
 const router = express.Router();
-// const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // CORS setup
 router.use(cors({
@@ -139,34 +137,6 @@ router.use(cors({
     credentials: true
 }));
 
-const s3Client = new S3Client({
-    region: 'us-east-1', // Replace with your AWS region
-    credentials: {
-        accessKeyId: 'AKIAZPPGAA7WPICT4356', // Use environment variables
-        secretAccessKey: 'kA1y/vXN1MNlXXYqAmqP5s6+xkT7aUrpXVi5F9Ab', // Use environment variables
-    },
-});
-
-// Multer setup (for handling file uploads)
-const upload = multer({
-    storage: multer.memoryStorage(), // Store files in memory before uploading to S3
-    limits: { fileSize: 10 * 1024 * 1024 }, // Set file size limit (e.g., 10MB)
-});
-
-// Helper function to upload file to S3
-const uploadToS3 = async (file) => {
-    const params = {
-        Bucket: 'smpbe', // Replace with your S3 bucket name
-        Key: `uploads/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-    };
-
-    const command = new PutObjectCommand(params);
-    await s3Client.send(command);
-
-    return `https://${params.Bucket}.s3.amazonaws.com/${params.Key}`; // Return the file URL
-};
 
 // Function to post a message to Facebook
 const postMessageToFacebook = async (pageId, pageAccessToken, message) => {
@@ -494,92 +464,177 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         let mediaIds = [];
         let postId = null;
-        let mediaUrls = [];
+        let mediaUrls = []; // Array to store media URLs
 
         if (files && files.length > 0) {
-            // Handle file uploads
-            const fileUploads = files.map(async (file) => {
-                // Step 1: Upload file to AWS S3 and get the URL
-                const s3Url = await uploadToS3(file);
-
-                // Step 2: Upload file to Facebook
-                const formData = new FormData();
-                formData.append('source', file.buffer, {
-                    filename: file.originalname || 'photo.jpg',
-                    contentType: file.mimetype || 'image/jpeg',
+            if (postType === 'feed') {
+                // Validate files
+                files.forEach((file, index) => {
+                    if (!file.buffer || !file.mimetype) {
+                        throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
+                    }
                 });
-                formData.append('published', 'false'); // Upload but do not publish
 
-                const response = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
-                    {
+                // Handle photo uploads
+                const photoUploads = files.map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('source', file.buffer, {
+                        filename: file.originalname || 'photo.jpg',
+                        contentType: file.mimetype || 'image/jpeg',
+                    });
+                    formData.append('published', 'false'); // Upload but do not publish
+
+                    const response = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
+                        {
+                            method: 'POST',
+                            body: formData,
+                            headers: formData.getHeaders(),
+                        }
+                    );
+
+                    const result = await response.json();
+                    if (!response.ok || !result.id) {
+                        throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
+                    }
+                    return { media_fbid: result.id };
+                });
+
+                // Wait for all uploads to finish
+                mediaIds = await Promise.all(photoUploads);
+
+                // Fetch media URLs for images
+                for (const media of mediaIds) {
+                    const mediaUrl = await fetchMediaUrl(media.media_fbid, accessToken);
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl);
+                    }
+                }
+
+                // Create the post with all attached photos
+                const postData = {
+                    attached_media: JSON.stringify(mediaIds),
+                    access_token: pageAccessToken,
+                };
+                if (caption) postData.message = caption;
+
+                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                    method: 'POST',
+                    body: new URLSearchParams(postData),
+                });
+
+                const postResult = await postResponse.json();
+                if (!postResponse.ok || !postResult.id) {
+                    throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
+                }
+
+                postId = postResult.id;
+
+                // Save post to database with media URLs
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+                return res.json({
+                    success: true,
+                    postId: postId,
+                    message: 'Post created successfully with photos.',
+                    mediaIds: mediaIds,
+                    mediaUrls: mediaUrls,
+                });
+            } else if (postType === 'videos' || postType === 'reels') {
+                console.log("Starting video upload process");
+
+                let postId;  // Declaring postId outside try block
+                try {
+                    // Handle video uploads (only one video at a time)
+                    if (!files || files.length === 0) {
+                        throw new Error("No video file provided for upload");
+                    }
+
+                    const videoBuffer = files[0].buffer;
+                    console.log("Video buffer obtained");
+
+                    const formData = new FormData();
+                    formData.append('source', videoBuffer, {
+                        filename: files[0].originalname,
+                        contentType: files[0].mimetype
+                    });
+                    if (caption) formData.append('description', caption);
+                    console.log("Form data prepared with video and description");
+
+                    // Make request to Facebook API for video upload
+                    const videoUploadUrl = `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`;
+                    console.log(`Making request to Facebook API for video upload: ${videoUploadUrl}`);
+
+                    const videoResponse = await fetch(videoUploadUrl, {
                         method: 'POST',
                         body: formData,
                         headers: formData.getHeaders(),
+                    });
+
+                    console.log("Facebook video upload response received");
+                    const videoResult = await videoResponse.json();
+
+                    if (!videoResponse.ok || !videoResult.id) {
+                        console.error("Video upload failed:", videoResult.error?.message || 'Unknown error');
+                        throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                     }
-                );
 
-                const result = await response.json();
-                if (!response.ok || !result.id) {
-                    throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
+                    postId = videoResult.id; // The video itself is the post
+                    mediaIds.push(postId);
+                    console.log("Video uploaded successfully. Post ID:", postId);
+
+                    // Fetch media URL for the uploaded video
+                    console.log("Fetching media URL for video ID:", postId);
+                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken); // Use pageAccessToken instead of accessToken
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl); // Save the media URL directly
+                        console.log("Media URL fetched successfully:", mediaUrl);
+                    } else {
+                        console.warn("No media URL found for the uploaded video");
+                    }
+
+                    // Save to database with media URL
+                    console.log("Saving post to the database with media URLs:", mediaUrls);
+                    await savePostToDatabase(email, pageId, pageName, caption, pageAccessToken, mediaIds, postId, mediaUrls);
+                    console.log("Post saved successfully to the database");
+
+                    // Ensure response is sent only once
+                    if (!res.headersSent) {
+                        res.json({
+                            message: "Video uploaded and post saved successfully.",
+                            postId,
+                            mediaUrls
+                        });
+                    }
+
+                } catch (error) {
+                    console.error("Error during video upload process:", error.message);
+
+                    // Ensure that error response is sent only once
+                    if (!res.headersSent) {
+                        res.status(500).json({ error: error.message });
+                    }
                 }
-
-                // Return both the S3 URL and Facebook media ID
-                return { s3Url, media_fbid: result.id };
-            });
-
-            // Wait for all uploads to finish
-            const uploadResults = await Promise.all(fileUploads);
-
-            // Separate the S3 URLs and Facebook media IDs
-            uploadResults.forEach(result => {
-                mediaUrls.push(result.s3Url);
-                mediaIds.push(result.media_fbid);
-            });
-
-            // Step 3: Create the post on Facebook
-            const postData = {
-                attached_media: JSON.stringify(mediaIds),
-                access_token: pageAccessToken,
-            };
-            if (caption) postData.message = caption;
-
-            const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                method: 'POST',
-                body: new URLSearchParams(postData),
-            });
-
-            const postResult = await postResponse.json();
-            if (!postResponse.ok || !postResult.id) {
-                throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
             }
 
-            postId = postResult.id;
 
-            // Step 4: Save the post to the database
-            await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaUrls, mediaIds, postId);
 
-            return res.json({
-                success: true,
-                postId: postId,
-                message: 'Post created successfully with photos.',
-                mediaUrls: mediaUrls, // List of URLs from S3
-                facebookIds: mediaIds, // List of media IDs from Facebook
-            });
+
         } else {
-            // Handle text-only post
+            // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
 
-            // Save to database
-            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], [], postId);
-
-            return res.json({
-                success: true,
-                postId: postId,
-                message: 'Text post created successfully.',
-            });
+            // Save to database without media URLs
+            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId, []);
         }
+
+        return res.json({
+            success: true,
+            postId: postId,
+            message: 'Post created successfully.',
+            mediaIds: mediaIds,
+            mediaUrls: mediaUrls,
+        });
     } catch (error) {
         console.error('Error during upload:', error);
         return res.status(500).json({ error: 'Upload failed', details: error.message });
