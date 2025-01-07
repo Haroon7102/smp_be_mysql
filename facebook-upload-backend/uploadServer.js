@@ -434,13 +434,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
         if (files && files.length > 0) {
             if (postType === 'feed') {
-                // Validate files
-                files.forEach((file, index) => {
-                    if (!file.buffer || !file.mimetype) {
-                        throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
-                    }
-                });
-
                 // Handle photo uploads
                 const photoUploads = files.map(async (file) => {
                     const formData = new FormData();
@@ -463,19 +456,15 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     if (!response.ok || !result.id) {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
+
+                    // Fetch the photo URL
+                    const mediaUrl = `https://graph.facebook.com/v21.0/${result.id}/picture?access_token=${pageAccessToken}`;
+                    mediaUrls.push(mediaUrl);
+
                     return { media_fbid: result.id };
                 });
 
-                // Wait for all uploads to finish
                 mediaIds = await Promise.all(photoUploads);
-
-                // Fetch media URLs for photos and videos
-                for (let media of mediaIds) {
-                    const mediaUrl = await fetchMediaUrl(media.media_fbid, pageAccessToken);
-                    if (mediaUrl) {
-                        mediaUrls.push(mediaUrl);
-                    }
-                }
 
                 // Create the post with all attached photos
                 const postData = {
@@ -496,16 +485,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = postResult.id;
 
-                // Save post to database with media URLs
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaUrls, postId);
+                // Save post to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
                 return res.json({
                     success: true,
                     postId: postId,
                     message: 'Post created successfully with photos.',
+                    mediaIds: mediaIds,
                     mediaUrls: mediaUrls,
                 });
             } else if (postType === 'videos' || postType === 'reels') {
-                // Handle video uploads (only one video at a time)
+                // Handle video uploads
                 const videoBuffer = files[0].buffer;
 
                 const formData = new FormData();
@@ -526,31 +516,27 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                 }
 
-                postId = videoResult.id; // The video itself is the post
-                mediaIds.push(videoResult.id);
+                postId = videoResult.id;
+                const videoUrl = `https://www.facebook.com/${videoResult.id}`;
+                mediaUrls.push(videoUrl);
 
-                // Fetch media URL for video
-                const videoUrl = await fetchMediaUrl(videoResult.id, pageAccessToken);
-                if (videoUrl) {
-                    mediaUrls.push(videoUrl);
-                }
-
-                // Save to database with media URLs
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaUrls, postId);
+                // Save to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
             }
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
 
-            // Save to database with empty media URLs (no images or videos)
-            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId);
+            // Save to database
+            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId, []);
         }
 
         return res.json({
             success: true,
             postId: postId,
             message: 'Post created successfully.',
+            mediaIds: mediaIds,
             mediaUrls: mediaUrls,
         });
     } catch (error) {
@@ -558,30 +544,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
-
-// Function to fetch media URLs (for photos and videos)
-const fetchMediaUrl = async (mediaFbid, accessToken) => {
-    if (!mediaFbid) {
-        console.error("Media FBID is undefined");
-        return null;
-    }
-    try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
-        );
-        const data = await response.json();
-        if (data.source) {
-            console.log("media url is: ", data.source);
-            return data.source;
-        } else {
-            console.error("No media source found for media_fbid:", mediaFbid);
-            return null;
-        }
-    } catch (error) {
-        console.error("Error fetching media source:", error);
-        return null;
-    }
-};
 
 
 
