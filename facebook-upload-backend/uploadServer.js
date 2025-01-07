@@ -567,27 +567,27 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     postId = videoResult.id; // The video itself is the post
                     mediaIds.push(videoResult.id);
-                    console.log("Video uploaded successfully. Post ID:", postId);
 
-                    // Fetch media URL for video
-                    console.log("Fetching media URL for video ID:", postId);
-                    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-                    console.log("Waiting for video to process...");
-                    await delay(5000); // Wait for 5 seconds (or adjust time as needed)
-                    const mediaUrl = await fetchVideoSource(videoResult.id, accessToken);
-
+                    const mediaUrl = videoResult.source; // Extract video URL directly from the response
                     if (mediaUrl) {
                         mediaUrls.push(mediaUrl);
                         console.log("Media URL fetched successfully:", mediaUrl);
                     } else {
-                        console.log("No media URL found for video");
+                        console.log("No media URL found in the response");
                     }
 
-                    // Save to database with media URL
+                    // Save to database
                     console.log("Saving post to the database with media URLs:", mediaUrls);
                     await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
                     console.log("Post saved successfully to the database");
+
+                    // Respond to client
+                    res.json({
+                        success: true,
+                        postId: postId,
+                        mediaUrls: mediaUrls,
+                        message: `${postType} uploaded successfully.`,
+                    });
 
                 } catch (error) {
                     console.error("Error during video upload process:", error.message);
@@ -595,6 +595,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     throw error;
                 }
             }
+
+
 
         } else {
             // Text-only post
