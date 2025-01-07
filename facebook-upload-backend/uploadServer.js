@@ -537,63 +537,74 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
             } else if (postType === 'videos' || postType === 'reels') {
                 console.log("Starting video upload process");
 
-                // Handle video uploads (only one video at a time)
-                const videoBuffer = files[0].buffer;
-                console.log("Video buffer obtained");
-
-                const formData = new FormData();
-                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
-                if (caption) formData.append('description', caption);
-                console.log("Form data prepared with video and description");
-
-                // Respond immediately to avoid timeout
-                res.json({
-                    success: true,
-                    message: "Video upload started. Please check later for the post status.",
-                });
-
-                // Continue processing in the background
-                (async () => {
-                    try {
-                        console.log(`Making request to Facebook API for video upload: https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`);
-                        const videoResponse = await fetch(
-                            `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                            {
-                                method: 'POST',
-                                body: formData,
-                                headers: formData.getHeaders(),
-                            }
-                        );
-
-                        console.log("Facebook video upload response received");
-                        const videoResult = await videoResponse.json();
-
-                        if (!videoResponse.ok || !videoResult.id) {
-                            console.error("Video upload failed with error:", videoResult.error?.message || 'Unknown error');
-                            throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
-                        }
-
-                        postId = videoResult.id; // The video itself is the post
-                        mediaIds.push(videoResult.id);
-
-                        const mediaUrl = videoResult.source; // Extract video URL directly from the response
-                        if (mediaUrl) {
-                            mediaUrls.push(mediaUrl);
-                            console.log("Media URL fetched successfully:", mediaUrl);
-                        } else {
-                            console.log("No media URL found in the response");
-                        }
-
-                        // Save to database
-                        console.log("Saving post to the database with media URLs:", mediaUrls);
-                        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
-                        console.log("Post saved successfully to the database");
-
-                    } catch (error) {
-                        console.error("Error during video upload process:", error.message);
-                        // Optionally log this for debugging purposes
+                let postId;  // Declaring postId outside try block
+                try {
+                    // Handle video uploads (only one video at a time)
+                    if (!files || files.length === 0) {
+                        throw new Error("No video file provided for upload");
                     }
-                })();
+
+                    const videoBuffer = files[0].buffer;
+                    console.log("Video buffer obtained");
+
+                    const formData = new FormData();
+                    formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
+                    if (caption) formData.append('description', caption);
+                    console.log("Form data prepared with video and description");
+
+                    // Make request to Facebook API for video upload
+                    const videoUploadUrl = `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`;
+                    console.log(`Making request to Facebook API for video upload: ${videoUploadUrl}`);
+
+                    const videoResponse = await fetch(videoUploadUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    });
+
+                    console.log("Facebook video upload response received");
+                    const videoResult = await videoResponse.json();
+
+                    if (!videoResponse.ok || !videoResult.id) {
+                        console.error("Video upload failed:", videoResult.error?.message || 'Unknown error');
+                        throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                    }
+
+                    postId = videoResult.id; // The video itself is the post
+                    mediaIds.push(postId);
+                    console.log("Video uploaded successfully. Post ID:", postId);
+
+                    // Fetch media URL for the uploaded video
+                    console.log("Fetching media URL for video ID:", postId);
+                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken);
+
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl);
+                        console.log("Media URL fetched successfully:", mediaUrl);
+                    } else {
+                        console.warn("No media URL found for the uploaded video");
+                    }
+
+                    // Save to database with media URL
+                    console.log("Saving post to the database with media URLs:", mediaUrls);
+                    await savePostToDatabase(email, pageId, pageName, caption, pageAccessToken, mediaIds, postId, mediaUrls);
+                    console.log("Post saved successfully to the database");
+
+                    // Ensure response is sent only once
+                    res.json({
+                        message: "Video uploaded and post saved successfully.",
+                        postId,
+                        mediaUrls
+                    });
+
+                } catch (error) {
+                    console.error("Error during video upload process:", error.message);
+
+                    // Make sure that error response is sent only once
+                    if (!res.headersSent) {
+                        res.status(500).json({ error: error.message });
+                    }
+                }
             }
 
 
