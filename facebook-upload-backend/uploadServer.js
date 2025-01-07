@@ -423,31 +423,31 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
         throw error;
     }
 };
-async function fetchVideoSourceWithBackoff(mediaFbid, accessToken, retries = 5, delay = 2000) {
+const fetchVideoSource = async (mediaFbid, accessToken) => {
+    console.log("Calling fetchVideoSource for mediaFbid:", mediaFbid);  // Log to check if the function is being called
+    if (!mediaFbid) {
+        console.error("Media FBID is undefined");
+        return null;
+    }
     try {
         const response = await fetch(
             `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
         );
         const data = await response.json();
+        console.log("Video Fetch Response:", data); // Log full response
 
         if (data.source) {
-            return data.source; // Video source URL
-        } else if (data.error) {
-            throw new Error(data.error.message);
+            console.log("Video source URL: ", data.source);
+            return data.source;
         } else {
-            throw new Error('No video source found yet');
+            console.error("No video source found for media_fbid:", mediaFbid);
+            return null;
         }
     } catch (error) {
-        if (retries > 0) {
-            console.log(`Retrying fetch for mediaFbid ${mediaFbid}. Attempts left: ${retries}`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return fetchVideoSourceWithBackoff(mediaFbid, accessToken, retries - 1, delay * 2);
-        } else {
-            throw new Error('Failed to fetch video source after multiple retries');
-        }
+        console.error("Error fetching video source:", error);
+        return null;
     }
-}
-
+};
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
@@ -584,7 +584,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for the uploaded video
                     console.log("Fetching media URL for video ID:", postId);
-                    const mediaUrl = await fetchVideoSourceWithBackoff(postId, pageAccessToken); // Use pageAccessToken instead of accessToken
+                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken); // Use pageAccessToken instead of accessToken
                     if (mediaUrl) {
                         mediaUrls.push(mediaUrl); // Save the media URL directly
                         console.log("Media URL fetched successfully:", mediaUrl);
