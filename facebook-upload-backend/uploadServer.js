@@ -571,6 +571,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for video
                     console.log("Fetching media URL for video ID:", postId);
+                    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+                    console.log("Waiting for video to process...");
+                    await delay(5000); // Wait for 5 seconds (or adjust time as needed)
                     const mediaUrl = await fetchVideoSource(videoResult.id, accessToken);
 
                     if (mediaUrl) {
