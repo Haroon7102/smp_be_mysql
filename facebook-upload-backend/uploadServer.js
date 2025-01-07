@@ -391,31 +391,24 @@ const fetchPageName = async (pageId, accessToken) => {
 // Save post data to the database
 const savePostToDatabase = async (email, pageId, pageName, message, accessToken, mediaIds, postId, mediaUrls) => {
     try {
-        if (!Array.isArray(mediaIds)) {
-            mediaIds = []; // Ensure mediaIds is an array
-        }
-        if (!Array.isArray(mediaUrls)) {
-            mediaUrls = []; // Ensure mediaUrls is an array
-        }
-        // Create the new post entry in the database
+        const mediaUrl = mediaUrls?.[0]; // Get the first media URL (optional)
         const newPost = await FbPost.create({
-            email,        // Email of the person making the post
-            pageId,       // Page ID to which the post was made
-            pageName,     // Page name to which the post was made
-            message,      // Message of the post
-            accessToken,  // Access token used for posting
-            media: JSON.stringify(mediaUrls), // Save media URLs (ensure it's a stringified JSON array)
-            postId,       // Facebook post ID
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            email,
+            pageId,
+            pageName,
+            message,
+            accessToken,
+            media: JSON.stringify(mediaUrls), // Save as JSON string
+            mediaUrl, // Save the first media URL (optional)
+            postId,
         });
-        console.log("Post saved successfully to the database:", newPost);
-        return newPost;
+        console.log('Post saved successfully to the database:', newPost);
     } catch (error) {
-        console.error("Error saving post to database:", error);
+        console.error('Error saving post to the database:', error);
         throw error;
     }
 };
+
 const fetchMediaUrl = async (mediaId, accessToken) => {
     try {
         const response = await fetch(`https://graph.facebook.com/v21.0/${mediaId}?fields=picture&access_token=${accessToken}`);
