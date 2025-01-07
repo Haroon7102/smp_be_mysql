@@ -41,7 +41,9 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
         },
         mediaUrl: {
-            type: DataTypes.TEXT, // Add the new column here
+            type: DataTypes.TEXT,
+            allowNull: true,
+            // Add the new column here
         },
         createdAt: {
             type: DataTypes.DATE,
