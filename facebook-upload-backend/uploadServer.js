@@ -422,45 +422,28 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
         throw error;
     }
 };
-async function fetchVideoSource(videoId, accessToken) {
-    const maxRetries = 3; // Reduce max retries to avoid extended timeouts
-    const delay = 3000; // Delay between retries (in milliseconds)
-    const timeout = 10000; // Set a timeout for each request (in milliseconds)
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-            const response = await fetch(
-                `https://graph.facebook.com/v21.0/${videoId}?fields=source&access_token=${accessToken}`,
-                { signal: controller.signal }
-            );
-            clearTimeout(timeoutId); // Clear the timeout after a successful response
-
-            const data = await response.json();
-            if (data.source) {
-                return data.source; // Return video source URL if available
-            } else {
-                console.log(`Attempt ${attempt}: Video source not available yet.`);
-                if (attempt < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, delay)); // Retry after delay
-                } else {
-                    throw new Error('Video source not available after multiple attempts.');
-                }
-            }
-        } catch (error) {
-            console.error(`Attempt ${attempt} failed:`, error);
-            if (error.name === 'AbortError') {
-                console.error('Request timed out.');
-            }
-            if (attempt === maxRetries) {
-                throw new Error('Failed to fetch video source after multiple attempts.');
-            }
-        }
+const fetchVideoSource = async (mediaFbid, accessToken) => {
+    if (!mediaFbid) {
+        console.error("Media FBID is undefined");
+        return null;
     }
-}
-
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
+        );
+        const data = await response.json();
+        if (data.source) {
+            console.log("media url is: ", data.source);
+            return data.source;
+        } else {
+            console.error("No video source found for media_fbid:", mediaFbid);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching video source:", error);
+        return null;
+    }
+};
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
@@ -552,39 +535,63 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     mediaUrls: mediaUrls,
                 });
             } else if (postType === 'videos' || postType === 'reels') {
+                console.log("Starting video upload process");
+
                 // Handle video uploads (only one video at a time)
                 const videoBuffer = files[0].buffer;
+                console.log("Video buffer obtained");
 
                 const formData = new FormData();
                 formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
                 if (caption) formData.append('description', caption);
+                console.log("Form data prepared with video and description");
 
-                const videoResponse = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
+                try {
+                    console.log(`Making request to Facebook API for video upload: https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`);
+                    const videoResponse = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                        {
+                            method: 'POST',
+                            body: formData,
+                            headers: formData.getHeaders(),
+                        }
+                    );
+
+                    console.log("Facebook video upload response received");
+                    const videoResult = await videoResponse.json();
+
+                    if (!videoResponse.ok || !videoResult.id) {
+                        console.error("Video upload failed with error:", videoResult.error?.message || 'Unknown error');
+                        throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                     }
-                );
 
-                const videoResult = await videoResponse.json();
-                if (!videoResponse.ok || !videoResult.id) {
-                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                    postId = videoResult.id; // The video itself is the post
+                    mediaIds.push(videoResult.id);
+                    console.log("Video uploaded successfully. Post ID:", postId);
+
+                    // Fetch media URL for video
+                    console.log("Fetching media URL for video ID:", postId);
+                    const mediaUrl = await fetchVideoSource(videoResult.id, accessToken);
+
+                    if (mediaUrl) {
+                        mediaUrls.push(mediaUrl);
+                        console.log("Media URL fetched successfully:", mediaUrl);
+                    } else {
+                        console.log("No media URL found for video");
+                    }
+
+                    // Save to database with media URL
+                    console.log("Saving post to the database with media URLs:", mediaUrls);
+                    await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+                    console.log("Post saved successfully to the database");
+
+                } catch (error) {
+                    console.error("Error during video upload process:", error.message);
+                    // Optionally, rethrow the error or handle it as per your needs
+                    throw error;
                 }
-
-                postId = videoResult.id; // The video itself is the post
-                mediaIds.push(videoResult.id);
-
-                // Fetch media URL for video
-                const mediaUrl = await fetchVideoSource(videoResult.id, accessToken);
-                if (mediaUrl) {
-                    mediaUrls.push(mediaUrl);
-                }
-
-                // Save to database with media URL
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
             }
+
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
