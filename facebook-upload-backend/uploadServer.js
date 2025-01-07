@@ -422,7 +422,28 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
         throw error;
     }
 };
-
+const fetchVideoSource = async (mediaFbid, accessToken) => {
+    if (!mediaFbid) {
+        console.error("Media FBID is undefined");
+        return null;
+    }
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
+        );
+        const data = await response.json();
+        if (data.source) {
+            console.log("media url is: ", data.source);
+            return data.source;
+        } else {
+            console.error("No video source found for media_fbid:", mediaFbid);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching video source:", error);
+        return null;
+    }
+};
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
@@ -520,7 +541,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                     }
 
-                    const videoUrl = `https://www.facebook.com/${videoResult.id}`;
+                    // Fetch the video URL using the provided function
+                    const videoUrl = await fetchVideoSource(videoResult.id, pageAccessToken);
                     return { media_fbid: videoResult.id, media_url: videoUrl };
                 });
 
@@ -554,6 +576,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Upload failed', details: error.message });
     }
 });
+
 
 
 // Route to upload files and post to Facebook
