@@ -423,6 +423,7 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
     }
 };
 const fetchVideoSource = async (mediaFbid, accessToken) => {
+    console.log("Calling fetchVideoSource for mediaFbid:", mediaFbid);  // Log to check if the function is being called
     if (!mediaFbid) {
         console.error("Media FBID is undefined");
         return null;
@@ -433,8 +434,9 @@ const fetchVideoSource = async (mediaFbid, accessToken) => {
         );
         const data = await response.json();
         console.log("Video Fetch Response:", data); // Log full response
+
         if (data.source) {
-            console.log("media url is: ", data.source);
+            console.log("Video source URL: ", data.source);
             return data.source;
         } else {
             console.error("No video source found for media_fbid:", mediaFbid);
@@ -445,6 +447,7 @@ const fetchVideoSource = async (mediaFbid, accessToken) => {
         return null;
     }
 };
+
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
@@ -549,7 +552,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     console.log("Video buffer obtained");
 
                     const formData = new FormData();
-                    formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
+                    formData.append('source', videoBuffer, {
+                        filename: files[0].originalname,
+                        contentType: files[0].mimetype
+                    });
                     if (caption) formData.append('description', caption);
                     console.log("Form data prepared with video and description");
 
@@ -577,7 +583,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for the uploaded video
                     console.log("Fetching media URL for video ID:", postId);
-                    const mediaUrl = await fetchVideoSource(postId, accessToken);
+                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken); // Use pageAccessToken instead of accessToken
                     if (mediaUrl) {
                         mediaUrls.push(mediaUrl); // Save the media URL directly
                         console.log("Media URL fetched successfully:", mediaUrl);
@@ -591,21 +597,24 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     console.log("Post saved successfully to the database");
 
                     // Ensure response is sent only once
-                    res.json({
-                        message: "Video uploaded and post saved successfully.",
-                        postId,
-                        mediaUrls
-                    });
+                    if (!res.headersSent) {
+                        res.json({
+                            message: "Video uploaded and post saved successfully.",
+                            postId,
+                            mediaUrls
+                        });
+                    }
 
                 } catch (error) {
                     console.error("Error during video upload process:", error.message);
 
-                    // Make sure that error response is sent only once
+                    // Ensure that error response is sent only once
                     if (!res.headersSent) {
                         res.status(500).json({ error: error.message });
                     }
                 }
             }
+
 
 
 
