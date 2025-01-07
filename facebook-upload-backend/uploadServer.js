@@ -422,28 +422,35 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
         throw error;
     }
 };
-const fetchVideoSource = async (mediaFbid, accessToken) => {
-    if (!mediaFbid) {
-        console.error("Media FBID is undefined");
-        return null;
-    }
-    try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
-        );
-        const data = await response.json();
-        if (data.source) {
-            console.log("media url is: ", data.source);
-            return data.source;
-        } else {
-            console.error("No video source found for media_fbid:", mediaFbid);
-            return null;
+async function fetchVideoSource(videoId, accessToken) {
+    const maxRetries = 5; // Set the maximum retries
+    const delay = 3000; // Set the delay between retries (in milliseconds)
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(
+                `https://graph.facebook.com/v21.0/${videoId}?fields=source&access_token=${accessToken}`
+            );
+            const data = await response.json();
+            if (data.source) {
+                return data.source; // Return video source URL if available
+            } else {
+                console.log(`Attempt ${attempt}: Video source not available yet.`);
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delay)); // Retry after delay
+                } else {
+                    throw new Error('Video source not available after multiple attempts.');
+                }
+            }
+        } catch (error) {
+            console.error(`Attempt ${attempt} failed:`, error);
+            if (attempt === maxRetries) {
+                throw new Error('Failed to fetch video source after multiple attempts.');
+            }
         }
-    } catch (error) {
-        console.error("Error fetching video source:", error);
-        return null;
     }
-};
+}
+
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
     const files = req.files;
