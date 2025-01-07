@@ -423,14 +423,21 @@ const fetchMediaUrl = async (mediaId, accessToken) => {
     }
 };
 async function fetchVideoSource(videoId, accessToken) {
-    const maxRetries = 5; // Set the maximum retries
-    const delay = 3000; // Set the delay between retries (in milliseconds)
+    const maxRetries = 3; // Reduce max retries to avoid extended timeouts
+    const delay = 3000; // Delay between retries (in milliseconds)
+    const timeout = 10000; // Set a timeout for each request (in milliseconds)
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+
             const response = await fetch(
-                `https://graph.facebook.com/v21.0/${videoId}?fields=source&access_token=${accessToken}`
+                `https://graph.facebook.com/v21.0/${videoId}?fields=source&access_token=${accessToken}`,
+                { signal: controller.signal }
             );
+            clearTimeout(timeoutId); // Clear the timeout after a successful response
+
             const data = await response.json();
             if (data.source) {
                 return data.source; // Return video source URL if available
@@ -444,6 +451,9 @@ async function fetchVideoSource(videoId, accessToken) {
             }
         } catch (error) {
             console.error(`Attempt ${attempt} failed:`, error);
+            if (error.name === 'AbortError') {
+                console.error('Request timed out.');
+            }
             if (attempt === maxRetries) {
                 throw new Error('Failed to fetch video source after multiple attempts.');
             }
