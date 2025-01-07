@@ -584,7 +584,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                     // Fetch media URL for the uploaded video
                     console.log("Fetching media URL for video ID:", postId);
-                    const mediaUrl = await fetchVideoSource(postId, pageAccessToken); // Use pageAccessToken instead of accessToken
+                    const mediaUrl = await fetchVideoSource('617212307480265', 'EAAS7dtn6VuIBO3EV2lSMEhV1oZC36hbADS1n5EG8ah1BfJbBOwDgOdE5McRKdXFaovtP7ZBZBDLHKJydj9vGy61gZAEqa7Xwq2pILjJ93xBoBeQwg43nOoz3BU81AB7RB6V89opi6HneOSJ7QLuIAQ8Byf4M7byASTCuJmcd6ZCjD0yS8GKwZCnZCJL98efzZBRsW9j1NmXCXzmhOZBbNj6EihZBzbn8OI7nx4Qv1rPyel'); // Use pageAccessToken instead of accessToken
                     if (mediaUrl) {
                         mediaUrls.push(mediaUrl); // Save the media URL directly
                         console.log("Media URL fetched successfully:", mediaUrl);
