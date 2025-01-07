@@ -432,6 +432,7 @@ const fetchVideoSource = async (mediaFbid, accessToken) => {
             `https://graph.facebook.com/v21.0/${mediaFbid}?fields=source&access_token=${accessToken}`
         );
         const data = await response.json();
+        console.log("Video Fetch Response:", data); // Log full response
         if (data.source) {
             console.log("media url is: ", data.source);
             return data.source;
