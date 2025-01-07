@@ -41,7 +41,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
         },
         mediaUrl: {
-            type: DataTypes.TEXT,
+            type: DataTypes.JSON,
             allowNull: true,
             // Add the new column here
         },
