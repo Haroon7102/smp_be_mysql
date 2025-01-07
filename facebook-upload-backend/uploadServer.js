@@ -555,6 +555,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 // Save to database
                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
             }
+
         } else {
             // Text-only post
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
