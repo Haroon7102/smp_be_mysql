@@ -546,134 +546,134 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
 
 
 // Route to upload files and post to Facebook
-// router.post('/upload', upload.array('files', 10), async (req, res) => {
-//     const { accessToken, pageId, caption, postType, email } = req.body;
-//     const files = req.files;
+router.post('/upload', upload.array('files', 10), async (req, res) => {
+    const { accessToken, pageId, caption, postType, email } = req.body;
+    const files = req.files;
 
-//     if (!accessToken || !pageId) {
-//         return res.status(400).json({ error: 'Access token and page ID are required.' });
-//     }
+    if (!accessToken || !pageId) {
+        return res.status(400).json({ error: 'Access token and page ID are required.' });
+    }
 
-//     try {
-//         // Fetch the page access token and page name
-//         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
-//         const pageName = await fetchPageName(pageId, pageAccessToken);
+    try {
+        // Fetch the page access token and page name
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        const pageName = await fetchPageName(pageId, pageAccessToken);
 
-//         let mediaIds = [];
-//         let postId = null;
+        let mediaIds = [];
+        let postId = null;
 
-//         if (files && files.length > 0) {
-//             if (postType === 'feed') {
-//                 // Validate files
-//                 files.forEach((file, index) => {
-//                     if (!file.buffer || !file.mimetype) {
-//                         throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
-//                     }
-//                 });
+        if (files && files.length > 0) {
+            if (postType === 'feed') {
+                // Validate files
+                files.forEach((file, index) => {
+                    if (!file.buffer || !file.mimetype) {
+                        throw new Error(`File at index ${index} is invalid: Missing buffer or mimetype.`);
+                    }
+                });
 
-//                 // Handle photo uploads
-//                 const photoUploads = files.map(async (file) => {
-//                     const formData = new FormData();
-//                     formData.append('source', file.buffer, {
-//                         filename: file.originalname || 'photo.jpg',
-//                         contentType: file.mimetype || 'image/jpeg',
-//                     });
-//                     formData.append('published', 'false'); // Upload but do not publish
+                // Handle photo uploads
+                const photoUploads = files.map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('source', file.buffer, {
+                        filename: file.originalname || 'photo.jpg',
+                        contentType: file.mimetype || 'image/jpeg',
+                    });
+                    formData.append('published', 'false'); // Upload but do not publish
 
-//                     const response = await fetch(
-//                         `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
-//                         {
-//                             method: 'POST',
-//                             body: formData,
-//                             headers: formData.getHeaders(),
-//                         }
-//                     );
+                    const response = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
+                        {
+                            method: 'POST',
+                            body: formData,
+                            headers: formData.getHeaders(),
+                        }
+                    );
 
-//                     const result = await response.json();
-//                     if (!response.ok || !result.id) {
-//                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
-//                     }
-//                     return { media_fbid: result.id };
-//                 });
+                    const result = await response.json();
+                    if (!response.ok || !result.id) {
+                        throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
+                    }
+                    return { media_fbid: result.id };
+                });
 
-//                 // Wait for all uploads to finish
-//                 mediaIds = await Promise.all(photoUploads);
+                // Wait for all uploads to finish
+                mediaIds = await Promise.all(photoUploads);
 
-//                 // Create the post with all attached photos
-//                 const postData = {
-//                     attached_media: JSON.stringify(mediaIds),
-//                     access_token: pageAccessToken,
-//                 };
-//                 if (caption) postData.message = caption;
+                // Create the post with all attached photos
+                const postData = {
+                    attached_media: JSON.stringify(mediaIds),
+                    access_token: pageAccessToken,
+                };
+                if (caption) postData.message = caption;
 
-//                 const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-//                     method: 'POST',
-//                     body: new URLSearchParams(postData),
-//                 });
+                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                    method: 'POST',
+                    body: new URLSearchParams(postData),
+                });
 
-//                 const postResult = await postResponse.json();
-//                 if (!postResponse.ok || !postResult.id) {
-//                     throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
-//                 }
+                const postResult = await postResponse.json();
+                if (!postResponse.ok || !postResult.id) {
+                    throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
+                }
 
-//                 postId = postResult.id;
+                postId = postResult.id;
 
-//                 // Save post to database
-//                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
-//                 return res.json({
-//                     success: true,
-//                     postId: postId,
-//                     message: 'Post created successfully with photos.',
-//                     mediaIds: mediaIds,
-//                 });
-//             } else if (postType === 'videos' || postType === 'reels') {
-//                 // Handle video uploads (only one video at a time)
-//                 const videoBuffer = files[0].buffer;
+                // Save post to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+                return res.json({
+                    success: true,
+                    postId: postId,
+                    message: 'Post created successfully with photos.',
+                    mediaIds: mediaIds,
+                });
+            } else if (postType === 'videos' || postType === 'reels') {
+                // Handle video uploads (only one video at a time)
+                const videoBuffer = files[0].buffer;
 
-//                 const formData = new FormData();
-//                 formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
-//                 if (caption) formData.append('description', caption);
+                const formData = new FormData();
+                formData.append('source', videoBuffer, { filename: files[0].originalname, contentType: files[0].mimetype });
+                if (caption) formData.append('description', caption);
 
-//                 const videoResponse = await fetch(
-//                     `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-//                     {
-//                         method: 'POST',
-//                         body: formData,
-//                         headers: formData.getHeaders(),
-//                     }
-//                 );
+                const videoResponse = await fetch(
+                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    }
+                );
 
-//                 const videoResult = await videoResponse.json();
-//                 if (!videoResponse.ok || !videoResult.id) {
-//                     throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
-//                 }
+                const videoResult = await videoResponse.json();
+                if (!videoResponse.ok || !videoResult.id) {
+                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                }
 
-//                 postId = videoResult.id; // The video itself is the post
-//                 mediaIds.push(videoResult.id);
+                postId = videoResult.id; // The video itself is the post
+                mediaIds.push(videoResult.id);
 
-//                 // Save to database
-//                 await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
-//             }
-//         } else {
-//             // Text-only post
-//             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-//             postId = postResult.id;
+                // Save to database
+                await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId);
+            }
+        } else {
+            // Text-only post
+            const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+            postId = postResult.id;
 
-//             // Save to database
-//             await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId);
-//         }
+            // Save to database
+            await savePostToDatabase(email, pageId, pageName, caption, accessToken, [], postId);
+        }
 
-//         return res.json({
-//             success: true,
-//             postId: postId,
-//             message: 'Post created successfully.',
-//             mediaIds: mediaIds,
-//         });
-//     } catch (error) {
-//         console.error('Error during upload:', error);
-//         return res.status(500).json({ error: 'Upload failed', details: error.message });
-//     }
-// });
+        return res.json({
+            success: true,
+            postId: postId,
+            message: 'Post created successfully.',
+            mediaIds: mediaIds,
+        });
+    } catch (error) {
+        console.error('Error during upload:', error);
+        return res.status(500).json({ error: 'Upload failed', details: error.message });
+    }
+});
 
 
 // Fetch posts for the logged-in userbbbbbb
