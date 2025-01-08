@@ -410,136 +410,136 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
     }
 };
 
-const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
-    try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source&access_token=${accessToken}`
-        );
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error?.message || 'Failed to fetch media URL');
-        }
-        return result.source || result.picture; // `source` is for videos, `picture` for images
-    } catch (error) {
-        console.error(`Error fetching media URL for ${mediaFbid}:`, error);
-        throw error;
-    }
-};
+// const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
+//     try {
+//         const response = await fetch(
+//             `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source&access_token=${accessToken}`
+//         );
+//         const result = await response.json();
+//         if (!response.ok) {
+//             throw new Error(result.error?.message || 'Failed to fetch media URL');
+//         }
+//         return result.source || result.picture; // `source` is for videos, `picture` for images
+//     } catch (error) {
+//         console.error(`Error fetching media URL for ${mediaFbid}:`, error);
+//         throw error;
+//     }
+// };
 
-router.post('/upload', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, caption, postType, email } = req.body;
-    const files = req.files;
+// router.post('/upload', upload.array('files', 10), async (req, res) => {
+//     const { accessToken, pageId, caption, postType, email } = req.body;
+//     const files = req.files;
 
-    if (!accessToken || !pageId) {
-        return res.status(400).json({ error: 'Access token and page ID are required.' });
-    }
+//     if (!accessToken || !pageId) {
+//         return res.status(400).json({ error: 'Access token and page ID are required.' });
+//     }
 
-    try {
-        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
-        const pageName = await fetchPageName(pageId, pageAccessToken);
+//     try {
+//         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+//         const pageName = await fetchPageName(pageId, pageAccessToken);
 
-        let mediaIds = [];
-        let mediaUrls = [];
-        let postId = null;
+//         let mediaIds = [];
+//         let mediaUrls = [];
+//         let postId = null;
 
-        if (files && files.length > 0) {
-            if (postType === 'feed') {
-                const photoUploads = files.map(async (file) => {
-                    const formData = new FormData();
-                    formData.append('source', file.buffer, {
-                        filename: file.originalname || 'photo.jpg',
-                        contentType: file.mimetype || 'image/jpeg',
-                    });
-                    formData.append('published', 'false');
+//         if (files && files.length > 0) {
+//             if (postType === 'feed') {
+//                 const photoUploads = files.map(async (file) => {
+//                     const formData = new FormData();
+//                     formData.append('source', file.buffer, {
+//                         filename: file.originalname || 'photo.jpg',
+//                         contentType: file.mimetype || 'image/jpeg',
+//                     });
+//                     formData.append('published', 'false');
 
-                    const response = await fetch(
-                        `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
-                        {
-                            method: 'POST',
-                            body: formData,
-                            headers: formData.getHeaders(),
-                        }
-                    );
+//                     const response = await fetch(
+//                         `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
+//                         {
+//                             method: 'POST',
+//                             body: formData,
+//                             headers: formData.getHeaders(),
+//                         }
+//                     );
 
-                    const result = await response.json();
-                    if (!response.ok || !result.id) {
-                        throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
-                    }
+//                     const result = await response.json();
+//                     if (!response.ok || !result.id) {
+//                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
+//                     }
 
-                    const mediaUrl = await fetchMediaUrlFromFacebook(result.id, pageAccessToken);
-                    mediaUrls.push(mediaUrl);
-                    return { media_fbid: result.id };
-                });
+//                     const mediaUrl = await fetchMediaUrlFromFacebook(result.id, pageAccessToken);
+//                     mediaUrls.push(mediaUrl);
+//                     return { media_fbid: result.id };
+//                 });
 
-                mediaIds = await Promise.all(photoUploads);
+//                 mediaIds = await Promise.all(photoUploads);
 
-                const postData = {
-                    attached_media: JSON.stringify(mediaIds),
-                    access_token: pageAccessToken,
-                };
-                if (caption) postData.message = caption;
+//                 const postData = {
+//                     attached_media: JSON.stringify(mediaIds),
+//                     access_token: pageAccessToken,
+//                 };
+//                 if (caption) postData.message = caption;
 
-                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-                    method: 'POST',
-                    body: new URLSearchParams(postData),
-                });
+//                 const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+//                     method: 'POST',
+//                     body: new URLSearchParams(postData),
+//                 });
 
-                const postResult = await postResponse.json();
-                if (!postResponse.ok || !postResult.id) {
-                    throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
-                }
+//                 const postResult = await postResponse.json();
+//                 if (!postResponse.ok || !postResult.id) {
+//                     throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
+//                 }
 
-                postId = postResult.id;
-            } else if (postType === 'videos' || postType === 'reels') {
-                const videoBuffer = files[0].buffer;
+//                 postId = postResult.id;
+//             } else if (postType === 'videos' || postType === 'reels') {
+//                 const videoBuffer = files[0].buffer;
 
-                const formData = new FormData();
-                formData.append('source', videoBuffer, {
-                    filename: files[0].originalname,
-                    contentType: files[0].mimetype,
-                });
-                if (caption) formData.append('description', caption);
+//                 const formData = new FormData();
+//                 formData.append('source', videoBuffer, {
+//                     filename: files[0].originalname,
+//                     contentType: files[0].mimetype,
+//                 });
+//                 if (caption) formData.append('description', caption);
 
-                const videoResponse = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    }
-                );
+//                 const videoResponse = await fetch(
+//                     `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+//                     {
+//                         method: 'POST',
+//                         body: formData,
+//                         headers: formData.getHeaders(),
+//                     }
+//                 );
 
-                const videoResult = await videoResponse.json();
-                if (!videoResponse.ok || !videoResult.id) {
-                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
-                }
+//                 const videoResult = await videoResponse.json();
+//                 if (!videoResponse.ok || !videoResult.id) {
+//                     throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+//                 }
 
-                postId = videoResult.id;
+//                 postId = videoResult.id;
 
-                const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken);
-                mediaUrls.push(mediaUrl);
-                mediaIds.push(videoResult.id);
-            }
-        } else {
-            const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
-            postId = postResult.id;
-        }
+//                 const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken);
+//                 mediaUrls.push(mediaUrl);
+//                 mediaIds.push(videoResult.id);
+//             }
+//         } else {
+//             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+//             postId = postResult.id;
+//         }
 
-        // Save post and media URLs to the database
-        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, mediaUrls, postId);
+//         // Save post and media URLs to the database
+//         await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, mediaUrls, postId);
 
-        return res.json({
-            success: true,
-            postId: postId,
-            message: 'Post created successfully.',
-            mediaIds: mediaIds,
-            mediaUrls: mediaUrls,
-        });
-    } catch (error) {
-        console.error('Error during upload:', error);
-        return res.status(500).json({ error: 'Upload failed', details: error.message });
-    }
-});
+//         return res.json({
+//             success: true,
+//             postId: postId,
+//             message: 'Post created successfully.',
+//             mediaIds: mediaIds,
+//             mediaUrls: mediaUrls,
+//         });
+//     } catch (error) {
+//         console.error('Error during upload:', error);
+//         return res.status(500).json({ error: 'Upload failed', details: error.message });
+//     }
+// });
 
 
 //this is s ahbhdfiufiurefhfhuerherfhieriheuruhuireh
