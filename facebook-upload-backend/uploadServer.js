@@ -409,14 +409,6 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
         throw error;
     }
 };
-const updateVideoUrlInDatabase = async (videoId, videoUrl) => {
-    await FbPost.update(
-        { media: videoUrl }, // Update the media column
-        { where: { mediaId: videoId } } // Match the video ID
-    );
-    console.log(`Video URL updated successfully: ${videoUrl}`);
-};
-
 
 const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
     try {
@@ -430,54 +422,6 @@ const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
         return result.source || result.picture; // `source` is for videos, `picture` for images
     } catch (error) {
         console.error(`Error fetching media URL for ${mediaFbid}:`, error);
-        throw error;
-    }
-};
-const fetchVideoStatus = async (videoId, pageAccessToken) => {
-    const url = `https://graph.facebook.com/v21.0/${videoId}?fields=source,status&access_token=${pageAccessToken}`;
-    try {
-        const response = await fetch(url);
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error?.message || 'Error fetching video status');
-        }
-        return result; // This will include the video status and URL
-    } catch (error) {
-        console.error('Error fetching video status:', error);
-        throw error;
-    }
-};
-
-const waitForVideoProcessing = async (videoId, pageAccessToken) => {
-    while (true) {
-        const videoData = await fetchVideoStatus(videoId, pageAccessToken);
-        if (videoData.status && videoData.status.video_status === 'ready') {
-            return videoData.source; // The final video URL
-        }
-        console.log('Video is still processing...');
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds before polling again
-    }
-};
-
-const checkVideoStatusAndSave = async (videoId, pageAccessToken) => {
-    const url = `https://graph.facebook.com/v21.0/${videoId}?fields=source,status&access_token=${pageAccessToken}`;
-    try {
-        const response = await fetch(url);
-        const result = await response.json();
-
-        if (result.status && result.status.video_status === 'ready') {
-            const videoUrl = result.source;
-
-            // Update the database with the final video URL
-            await updateVideoUrlInDatabase(videoId, videoUrl);
-            console.log(`Video ${videoId} is ready and URL is saved: ${videoUrl}`);
-            return true; // Processing complete
-        } else {
-            console.log(`Video ${videoId} is still processing...`);
-            return false; // Still processing
-        }
-    } catch (error) {
-        console.error(`Error checking status for video ${videoId}:`, error);
         throw error;
     }
 };
@@ -570,26 +514,19 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
                 }
 
-                videoId = videoResult.id;
+                postId = videoResult.id;
 
-                // Save the video ID and other post details in the database (without media URL for now)
-                await savePostToDatabase(email, pageId, pageName, caption, accessToken, [videoId], null, null);
-
-                // Respond to the client immediately
-                return res.json({
-                    success: true,
-                    videoId: videoId,
-                    message: `${postType} uploaded successfully. Video is being processed.`,
-                });
+                const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken);
+                mediaUrls.push(mediaUrl);
+                mediaIds.push(videoResult.id);
             }
-
         } else {
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
         }
 
         // Save post and media URLs to the database
-        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
+        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, mediaUrls, postId);
 
         return res.json({
             success: true,
@@ -604,27 +541,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 });
 
-router.get('/check-video-status/:videoId', async (req, res) => {
-    const { videoId } = req.params;
-    const { accessToken, pageId } = req.body;
-
-    try {
-        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
-        const isReady = await checkVideoStatusAndSave(videoId, pageAccessToken);
-
-        if (isReady) {
-            return res.json({ success: true, message: 'Video is ready and URL has been saved.' });
-        } else {
-            return res.json({ success: false, message: 'Video is still processing.' });
-        }
-    } catch (error) {
-        console.error('Error checking video status:', error);
-        return res.status(500).json({ error: 'Failed to check video status.' });
-    }
-});
 
 
-///rjefouhrhioij
+
 
 // Route to upload files and post to Facebook
 // router.post('/upload', upload.array('files', 10), async (req, res) => {
