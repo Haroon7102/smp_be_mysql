@@ -410,7 +410,7 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
     }
 };
 
-const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken, retries = 5, delayMs = 5000) => {
+const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken, retries = 5, delayMs = 20000) => {
     try {
         for (let attempt = 1; attempt <= retries; attempt++) {
             const response = await fetch(
@@ -421,21 +421,21 @@ const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken, retries = 5, de
                 throw new Error(result.error?.message || 'Failed to fetch media URL');
             }
 
-            // Check video processing status
-            if (result.status && result.status !== 'ready') {
-                console.log(`Video ${mediaFbid} is not ready yet. Retrying in ${delayMs}ms...`);
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            if (result.status === 'ready') {
+                return result.source || result.picture; // Video is ready, return the URL
             } else {
-                return result.source || result.picture; // Return `source` for video or `picture` for images
+                console.log(`Video ${mediaFbid} is still processing. Retrying in ${delayMs}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, delayMs)); // Retry after delay
             }
         }
 
-        throw new Error('Video processing timed out.');
+        throw new Error('Video processing timed out or failed.');
     } catch (error) {
         console.error(`Error fetching media URL for ${mediaFbid}:`, error);
         throw error;
     }
 };
+
 
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
