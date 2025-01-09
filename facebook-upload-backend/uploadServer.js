@@ -724,47 +724,28 @@ router.get('/posts', async (req, res) => {
         });
 
         // Process posts and include media URL if media exists
-        const safePosts = await Promise.all(
-            posts.map(async (post) => {
-                let media = null;
-                let mediaUrl = null;
+        const safePosts = posts.map(post => {
+            let media = null;
+            let mediaUrl = null;
 
-                // Safely parse media JSON if it exists
-                try {
-                    media = post.media ? JSON.parse(post.media) : null;
-                } catch (err) {
-                    console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
-                }
+            // Safely parse media JSON if it exists
+            try {
+                media = post.media ? JSON.parse(post.media) : null;
+            } catch (err) {
+                console.error(`Invalid JSON in media field for post ID ${post.id}:`, err.message);
+            }
 
-                // Retrieve media URL using Facebook API (if media and accessToken are available)
-                if (media && media.id && post.accessToken) {
-                    try {
-                        const response = await fetch(`https://graph.facebook.com/v21.0/${media.id}`, {
-                            method: 'GET',
-                            headers: {
-                                Authorization: `Bearer ${post.accessToken}`,
-                            },
-                        });
+            // Use media URL directly from the database if available
+            if (media) {
+                mediaUrl = media.url;  // Assuming media contains the URL you stored earlier
+            }
 
-                        const data = await response.json();
-
-                        if (response.ok && data.source) {
-                            mediaUrl = data.source; // URL of the media
-                        } else {
-                            console.error(`Failed to fetch media for post ID ${post.id}:`, data.error?.message);
-                        }
-                    } catch (err) {
-                        console.error(`Error fetching media for post ID ${post.id}:`, err.message);
-                    }
-                }
-
-                return {
-                    ...post.dataValues,
-                    media,
-                    mediaUrl, // Include media URL in response
-                };
-            })
-        );
+            return {
+                ...post.dataValues,
+                media,
+                mediaUrl, // Include media URL in response
+            };
+        });
 
         res.json(safePosts);
     } catch (error) {
@@ -772,6 +753,7 @@ router.get('/posts', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
+
 
 
 
