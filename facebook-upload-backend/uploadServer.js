@@ -526,7 +526,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         }
 
         // Save post and media URLs to the database
-        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, mediaUrls);
+        await savePostToDatabase(email, pageId, pageName, caption, accessToken, mediaIds, postId, mediaUrls);
 
         return res.json({
             success: true,
