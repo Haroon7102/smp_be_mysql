@@ -410,31 +410,37 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
     }
 };
 
-const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken, retries = 5, delayMs = 20000) => {
+const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
     try {
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            const response = await fetch(
-                `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source,status&access_token=${accessToken}`
-            );
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.error?.message || 'Failed to fetch media URL');
-            }
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source,type&access_token=${accessToken}`
+        );
+        const result = await response.json();
 
-            if (result.status === 'ready') {
-                return result.source || result.picture; // Video is ready, return the URL
-            } else {
-                console.log(`Video ${mediaFbid} is still processing. Retrying in ${delayMs}ms...`);
-                await new Promise((resolve) => setTimeout(resolve, delayMs)); // Retry after delay
-            }
+        if (!response.ok) {
+            throw new Error(result.error?.message || 'Failed to fetch media URL');
         }
 
-        throw new Error('Video processing timed out or failed.');
+        if (result.type === 'video') {
+            // If it's a video, check the processing status (if available)
+            if (result.status === 'ready') {
+                return result.source;  // Return video URL
+            } else {
+                console.log(`Video ${mediaFbid} is still processing.`);
+                throw new Error('Video is still processing, please retry later.');
+            }
+        } else if (result.type === 'photo') {
+            // If it's a photo, return the picture URL
+            return result.picture;  // Return image URL
+        } else {
+            throw new Error('Unknown media type');
+        }
     } catch (error) {
         console.error(`Error fetching media URL for ${mediaFbid}:`, error);
         throw error;
     }
 };
+
 
 
 
