@@ -437,7 +437,21 @@ const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
         throw error;
     }
 };
-
+const fetchMediaUrlFromFacebookimg = async (mediaFbid, accessToken) => {
+    try {
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source&access_token=${accessToken}`
+        );
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error?.message || 'Failed to fetch media URL');
+        }
+        return result.source || result.picture; // `source` is for videos, `picture` for images
+    } catch (error) {
+        console.error(`Error fetching media URL for ${mediaFbid}:`, error);
+        throw error;
+    }
+};
 
 
 
@@ -482,7 +496,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                         throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
                     }
 
-                    const mediaUrl = await fetchMediaUrlFromFacebook(result.id, pageAccessToken);
+                    const mediaUrl = await fetchMediaUrlFromFacebookimg(result.id, pageAccessToken);
                     mediaUrls.push(mediaUrl);
                     return { media_fbid: result.id };
                 });
