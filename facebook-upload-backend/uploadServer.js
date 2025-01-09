@@ -410,21 +410,33 @@ const savePostToDatabase = async (email, pageId, pageName, message, accessToken,
     }
 };
 
-const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken) => {
+const fetchMediaUrlFromFacebook = async (mediaFbid, accessToken, retries = 5, delayMs = 5000) => {
     try {
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source&access_token=${accessToken}`
-        );
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error?.message || 'Failed to fetch media URL');
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            const response = await fetch(
+                `https://graph.facebook.com/v21.0/${mediaFbid}?fields=picture,source,status&access_token=${accessToken}`
+            );
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error?.message || 'Failed to fetch media URL');
+            }
+
+            // Check video processing status
+            if (result.status && result.status !== 'ready') {
+                console.log(`Video ${mediaFbid} is not ready yet. Retrying in ${delayMs}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            } else {
+                return result.source || result.picture; // Return `source` for video or `picture` for images
+            }
         }
-        return result.source || result.picture; // `source` is for videos, `picture` for images
+
+        throw new Error('Video processing timed out.');
     } catch (error) {
         console.error(`Error fetching media URL for ${mediaFbid}:`, error);
         throw error;
     }
 };
+
 
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     const { accessToken, pageId, caption, postType, email } = req.body;
@@ -516,10 +528,14 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
                 postId = videoResult.id;
 
-                const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken);
+                console.log(`Video uploaded with ID: ${postId}. Waiting for processing...`);
+                await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait for 10 seconds
+
+                const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken, 5, 5000);
                 mediaUrls.push(mediaUrl);
                 mediaIds.push(videoResult.id);
             }
+
         } else {
             const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
             postId = postResult.id;
