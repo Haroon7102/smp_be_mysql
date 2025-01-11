@@ -693,43 +693,29 @@ router.delete('/post/delete', async (req, res) => {
     const { accessToken, pageId, postId, email } = req.body;
 
     if (!accessToken || !pageId || !postId || !email) {
-        return res.status(400).json({
-            error: 'Access token, page ID, post ID, and email are required.'
-        });
+        return res
+            .status(400)
+            .json({ error: 'Access token, page ID, post ID, and email are required.' });
     }
 
     try {
         // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Step 1: Fetch the post details first to check its type
-        const postDetailsResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${postId}?access_token=${pageAccessToken}&fields=id,message,type`,
-            { method: 'GET' }
-        );
-        const postDetails = await postDetailsResponse.json();
-
-        if (!postDetailsResponse.ok || !postDetails.id) {
-            throw new Error(`Post not found: ${postDetails.error?.message || 'Unknown error'}`);
-        }
-
-        // Step 2: Check if the post type is deletable (status, photo, video)
-        if (!['status', 'photo', 'video'].includes(postDetails.type)) {
-            throw new Error(`Cannot delete post of type ${postDetails.type}. Only status, photo, and video posts can be deleted.`);
-        }
-
-        // Step 3: Delete the post from Facebook
+        // Delete the post from Facebook
         const deleteResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${postId}?access_token=${pageAccessToken}`,
+            `https: //graph.facebook.com/v21.0/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
         const deleteResult = await deleteResponse.json();
         if (!deleteResponse.ok || !deleteResult.success) {
-            throw new Error(`Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`);
+            throw new Error(
+                `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
+            );
         }
 
-        // Step 4: Delete the post from the database
+        // Delete the post from the database
         await deletePostFromDatabase(postId, email);
 
         res.json({ success: true, message: 'Post deleted successfully.' });
