@@ -134,6 +134,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.use(cors({
     origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Include DELETE
+    allowedHeaders: ["Content-Type", "Authorization"], // Include any necessary headers
+
     credentials: true
 }));
 

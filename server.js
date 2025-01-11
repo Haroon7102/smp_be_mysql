@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 // }));
 app.use(cors({
     origin: 'https://smpfe.netlify.app', // Ensure this matches your frontend URL
-    methods: ['POST', 'GET', 'OPTIONS'], // List all methods you use
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Include DELETE
     allowedHeaders: ['Content-Type', 'Authorization'], // Add any custom headers you use
     credentials: true
 }));
