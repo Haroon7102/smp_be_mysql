@@ -669,15 +669,31 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
-
+const deletePostFromDatabase = async (postId, email) => {
+    try {
+        // Delete the post from the database where the postId and email match
+        await Post.destroy({
+            where: {
+                postId: postId,
+                email: email, // Assuming 'userEmail' is the column storing the user's email
+            },
+        });
+    } catch (error) {
+        console.error('Error deleting post from database:', error);
+        throw new Error('Failed to delete post from the database.');
+    }
+};
 router.delete('/post/delete', async (req, res) => {
     const { accessToken, pageId, postId, email } = req.body;
 
-    if (!accessToken || !pageId || !postId) {
-        return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
+    if (!accessToken || !pageId || !postId || !email) {
+        return res
+            .status(400)
+            .json({ error: 'Access token, page ID, post ID, and email are required.' });
     }
 
     try {
+        // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         // Delete the post from Facebook
@@ -688,10 +704,12 @@ router.delete('/post/delete', async (req, res) => {
 
         const deleteResult = await deleteResponse.json();
         if (!deleteResponse.ok || !deleteResult.success) {
-            throw new Error(`Failed to delete post: ${deleteResult.error?.message || 'Unknown error'}`);
+            throw new Error(
+                `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
+            );
         }
 
-        // Remove post entry from the database
+        // Delete the post from the database
         await deletePostFromDatabase(postId, email);
 
         res.json({ success: true, message: 'Post deleted successfully.' });
