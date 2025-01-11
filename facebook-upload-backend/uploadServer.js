@@ -575,6 +575,129 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 });
 
+router.put('/post/update', upload.array('files', 10), async (req, res) => {
+    const { accessToken, pageId, postId, caption, email } = req.body;
+    const files = req.files;
+
+    if (!accessToken || !pageId || !postId) {
+        return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
+    }
+
+    try {
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+
+        let updatedMediaIds = [];
+        let updatedMediaUrls = [];
+
+        if (files && files.length > 0) {
+            // Re-upload media to Facebook
+            const mediaUploads = files.map(async (file) => {
+                const formData = new FormData();
+                formData.append('source', file.buffer, {
+                    filename: file.originalname || 'file.jpg',
+                    contentType: file.mimetype || 'image/jpeg',
+                });
+                formData.append('published', 'false');
+
+                const response = await fetch(
+                    `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    }
+                );
+
+                const result = await response.json();
+                if (!response.ok || !result.id) {
+                    throw new Error(`Media upload failed: ${result.error?.message || 'Unknown error'}`);
+                }
+
+                const mediaUrl = await fetchMediaUrlFromFacebookimg(result.id, pageAccessToken);
+                updatedMediaUrls.push(mediaUrl);
+                return { media_fbid: result.id };
+            });
+
+            updatedMediaIds = await Promise.all(mediaUploads);
+
+            // Update post with new media
+            const updateData = {
+                attached_media: JSON.stringify(updatedMediaIds),
+                access_token: pageAccessToken,
+            };
+            if (caption) updateData.message = caption;
+
+            const updateResponse = await fetch(
+                `https://graph.facebook.com/v21.0/${postId}`,
+                {
+                    method: 'POST',
+                    body: new URLSearchParams(updateData),
+                }
+            );
+
+            const updateResult = await updateResponse.json();
+            if (!updateResponse.ok) {
+                throw new Error(`Failed to update post: ${updateResult.error?.message || 'Unknown error'}`);
+            }
+        } else if (caption) {
+            // Only update the caption if no files are uploaded
+            const updateResponse = await fetch(
+                `https://graph.facebook.com/v21.0/${postId}`,
+                {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        message: caption,
+                        access_token: pageAccessToken,
+                    }),
+                }
+            );
+
+            const updateResult = await updateResponse.json();
+            if (!updateResponse.ok) {
+                throw new Error(`Failed to update caption: ${updateResult.error?.message || 'Unknown error'}`);
+            }
+        }
+
+        // Update database entry
+        await updatePostInDatabase(postId, email, caption, updatedMediaUrls);
+
+        res.json({ success: true, message: 'Post updated successfully.' });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({ error: 'Post update failed', details: error.message });
+    }
+});
+
+router.delete('/post/delete', async (req, res) => {
+    const { accessToken, pageId, postId, email } = req.body;
+
+    if (!accessToken || !pageId || !postId) {
+        return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
+    }
+
+    try {
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+
+        // Delete the post from Facebook
+        const deleteResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${postId}?access_token=${pageAccessToken}`,
+            { method: 'DELETE' }
+        );
+
+        const deleteResult = await deleteResponse.json();
+        if (!deleteResponse.ok || !deleteResult.success) {
+            throw new Error(`Failed to delete post: ${deleteResult.error?.message || 'Unknown error'}`);
+        }
+
+        // Remove post entry from the database
+        await deletePostFromDatabase(postId, email);
+
+        res.json({ success: true, message: 'Post deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        res.status(500).json({ error: 'Post deletion failed', details: error.message });
+    }
+});
 
 
 
