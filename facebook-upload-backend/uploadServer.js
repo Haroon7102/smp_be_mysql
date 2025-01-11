@@ -690,40 +690,49 @@ const deletePostFromDatabase = async (postId, email) => {
 };
 
 router.delete('/post/delete', async (req, res) => {
-    const { accessToken, pageId, postId, email } = req.body;
-
-    if (!accessToken || !pageId || !postId || !email) {
-        return res
-            .status(400)
-            .json({ error: 'Access token, page ID, post ID, and email are required.' });
+    const { postId } = req.body;  // Get postId from request body
+    if (!postId) {
+        return res.status(400).json({ error: 'Post ID is required.' });
     }
 
     try {
-        // Get the page access token
+        // Step 1: Retrieve post details from the database
+        const post = await FbPost.findOne({ where: { postId } });
+
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found in the database.' });
+        }
+
+        // Step 2: Get necessary data from the post
+        const { accessToken, pageId, email } = post;
+
+        // Step 3: Get the page access token if needed (use existing function or direct accessToken)
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Delete the post from Facebook
+        // Step 4: Delete the post from Facebook using the Facebook Graph API
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
         const deleteResult = await deleteResponse.json();
-        if (!deleteResponse.ok || !deleteResult.success) {
+        if (!deleteResponse.ok || deleteResult.error) {
             throw new Error(
                 `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
             );
         }
 
-        // Delete the post from the database
-        await deletePostFromDatabase(postId, email);
+        // Step 5: Delete the post from the database
+        await FbPost.destroy({ where: { postId, email } });
 
+        // Step 6: Respond with success
         res.json({ success: true, message: 'Post deleted successfully.' });
     } catch (error) {
         console.error('Error deleting post:', error);
         res.status(500).json({ error: 'Post deletion failed', details: error.message });
     }
 });
+
 
 
 
