@@ -671,18 +671,24 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 });
 const deletePostFromDatabase = async (postId, email) => {
     try {
-        // Delete the post from the database where the postId and email match
-        await Post.destroy({
+        const deletedPost = await FbPost.destroy({
             where: {
                 postId: postId,
-                email: email, // Assuming 'userEmail' is the column storing the user's email
+                email: email,
             },
         });
+
+        if (deletedPost === 0) {
+            throw new Error('Post not found in the database.');
+        }
+
+        console.log('Post deleted successfully from the database:', postId);
     } catch (error) {
-        console.error('Error deleting post from database:', error);
+        console.error('Error deleting post from the database:', error);
         throw new Error('Failed to delete post from the database.');
     }
 };
+
 router.delete('/post/delete', async (req, res) => {
     const { accessToken, pageId, postId, email } = req.body;
 
