@@ -704,7 +704,7 @@ router.delete('/post/delete', async (req, res) => {
 
         // Delete the post from Facebook
         const deleteResponse = await fetch(
-            `https: //graph.facebook.com/v21.0/${postId}?access_token=${pageAccessToken}`,
+            `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
