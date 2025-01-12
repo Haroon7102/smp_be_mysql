@@ -885,7 +885,7 @@ router.get('/posts', async (req, res) => {
     try {
         // Fetch all posts from FbPost table
         const posts = await FbPost.findAll({
-            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken'], // Include accessToken field
+            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken', 'postId'], // Include accessToken field
             order: [['createdAt', 'DESC']],
         });
 
