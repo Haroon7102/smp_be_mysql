@@ -742,6 +742,36 @@ router.delete('/post/delete', async (req, res) => {
         res.status(500).json({ error: 'Post deletion failed', details: error.message });
     }
 });
+router.post('/generate-long-lived-token', async (req, res) => {
+    const { shortToken } = req.body;  // Get short-lived access token from request body
+    const appID = '1332019044439778';  // Replace with your Facebook App ID
+    const appSecret = '84b1a81f8b8129f43983db4e9692a39a';  // Replace with your Facebook App Secret
+    if (!shortToken) {
+        return res.status(400).json({ error: 'Short-lived token is required' });
+    }
+
+    // Facebook's API URL to exchange short-lived token
+    const url = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appID}&client_secret=${appSecret}&fb_exchange_token=${shortToken}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Check if the response contains the long-lived token
+        if (data.access_token) {
+
+            console.log("access token generated:", accessToken);
+            res.json({ accessToken: data.access_token });
+            console.log("access token is:", accessToken);
+        } else {
+            // Handle errors if access_token is not returned
+            res.status(400).json({ error: 'Failed to generate long-lived token', details: data.error });
+        }
+    } catch (error) {
+        console.error('Error exchanging token:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+});
 
 // router.delete('/post/delete', async (req, res) => {
 //     let { accessToken, pageId, postId, email } = req.body;  // Change const to let
