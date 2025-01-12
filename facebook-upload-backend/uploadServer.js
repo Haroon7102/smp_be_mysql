@@ -716,12 +716,16 @@ router.delete('/post/delete', async (req, res) => {
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         // Delete the post from Facebook
+        console.log("before sending the postid", postId);
+
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
         const deleteResult = await deleteResponse.json();
+        console.log("Delete response from Facebook:", deleteResult);
+
         if (!deleteResponse.ok || !deleteResult.success) {
             throw new Error(
                 `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
