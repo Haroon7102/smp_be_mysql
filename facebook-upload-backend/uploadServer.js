@@ -669,58 +669,52 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
-const deletePostFromDatabase = async (postId, email) => {
+
+
+async function refreshAccessToken(appId, appSecret, shortLivedAccessToken) {
     try {
-        const deletedPost = await FbPost.destroy({
-            where: {
-                postId: postId,
-                email: email,
-            },
+        const response = await axios.get('https://graph.facebook.com/v12.0/oauth/access_token', {
+            params: {
+                grant_type: 'fb_exchange_token',
+                client_id: appId,  // Your App ID
+                client_secret: appSecret,  // Your App Secret
+                fb_exchange_token: shortLivedAccessToken
+            }
         });
-
-        if (deletedPost === 0) {
-            throw new Error('Post not found in the database.');
-        }
-
-        console.log('Post deleted successfully from the database:', postId);
+        return response.data.access_token;
     } catch (error) {
-        console.error('Error deleting post from the database:', error);
-        throw new Error('Failed to delete post from the database.');
+        console.error('Error refreshing access token:', error);
+        throw new Error('Failed to refresh access token');
     }
-};
+}
 
 router.delete('/post/delete', async (req, res) => {
-    let { accessToken, pageId, postId, email } = req.body;  // Change const to let
+    let { accessToken, pageId, postId, email } = req.body;
     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
 
-
-    console.log("data recived", req.body);
-    // if (!postId) {
-    //     return res
-    //         .status(400)
-    //         .json({ error: 'Post ID is required.' });
-    // }
+    console.log("Data received:", req.body);
 
     try {
-        // Fetch the post details from the database using the postId
-        // const post = await FbPost.findOne({
-        //     attributes: ['accessToken', 'pageId', 'email'],  // Only fetch necessary fields
-        //     where: { postId: postId },
-        // });
+        // Check if the access token is valid and refresh it if expired
+        const tokenValidityResponse = await axios.get('https://graph.facebook.com/debug_token', {
+            params: {
+                input_token: accessToken,
+                access_token: accessToken
+            }
+        });
 
-        // if (!post) {
-        //     return res.status(404).json({ error: 'Post not found in the database.' });
-        // }
-
-        // // Extract the accessToken, pageId, and email from the database record
-        // const { accessToken, pageId, email } = post;
+        const isTokenValid = tokenValidityResponse.data.data.is_valid;
+        if (!isTokenValid) {
+            console.log('Access token is expired, refreshing it...');
+            // If the token is expired, refresh it using your app credentials
+            accessToken = await refreshAccessToken('1332019044439778', '84b1a81f8b8129f43983db4e9692a39a', accessToken);
+        }
 
         // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         // Delete the post from Facebook
-        console.log("before sending the postid", postId);
-
+        console.log("Before sending the postId:", postId);
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
@@ -737,7 +731,7 @@ router.delete('/post/delete', async (req, res) => {
 
         // Delete the post from the database
         await FbPost.destroy({
-            where: { postId: postId, email: email }, // Ensure we match by postId and email
+            where: { postId: postId, email: email },  // Ensure we match by postId and email
         });
 
         res.json({ success: true, message: 'Post deleted successfully.' });
