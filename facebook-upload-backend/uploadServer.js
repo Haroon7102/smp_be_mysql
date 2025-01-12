@@ -118,7 +118,6 @@ const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
 const { FbPost } = require('../models'); // Ensure you have a Post model
-const axios = require('axios');
 
 require('dotenv').config();
 
@@ -672,50 +671,46 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 });
 
 
-async function refreshAccessToken(appId, appSecret, shortLivedAccessToken) {
-    try {
-        const response = await axios.get('https://graph.facebook.com/v12.0/oauth/access_token', {
-            params: {
-                grant_type: 'fb_exchange_token',
-                client_id: appId,  // Your App ID
-                client_secret: appSecret,  // Your App Secret
-                fb_exchange_token: shortLivedAccessToken
-            }
-        });
-        return response.data.access_token;
-    } catch (error) {
-        console.error('Error refreshing access token:', error);
-        throw new Error('Failed to refresh access token');
-    }
-}
-
 router.delete('/post/delete', async (req, res) => {
-    let { accessToken, pageId, postId, email } = req.body;
-    postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
+    let { accessToken, pageId, postId } = req.body;
+    postId = postId.replace(/^"|"$/g, ''); // Remove leading and trailing quotes
 
-    console.log("Data received:", req.body);
+    console.log("Data received for deletion:", req.body);
 
     try {
-        // Check if the access token is valid and refresh it if expired
-        const tokenValidityResponse = await axios.get('https://graph.facebook.com/debug_token', {
-            params: {
-                input_token: accessToken,
-                access_token: accessToken
-            }
-        });
+        // Step 1: Check if the token is valid
+        const tokenValidationResponse = await fetch(
+            `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${accessToken}`
+        );
 
-        const isTokenValid = tokenValidityResponse.data.data.is_valid;
-        if (!isTokenValid) {
-            console.log('Access token is expired, refreshing it...');
-            // If the token is expired, refresh it using your app credentials
-            accessToken = await refreshAccessToken('1332019044439778', '84b1a81f8b8129f43983db4e9692a39a', accessToken);
+        const tokenValidation = await tokenValidationResponse.json();
+
+        // If the token is not valid, regenerate it
+        if (!tokenValidation.data || !tokenValidation.data.is_valid) {
+            console.log("Access token expired. Generating a new one...");
+
+            // Regenerate a new user access token using your long-lived token or another method
+            const newTokenResponse = await fetch(
+                `https://graph.facebook.com/v12.0/oauth/access_token?grant_type=fb_exchange_token&client_id=1332019044439778&client_secret=84b1a81f8b8129f43983db4e9692a39a&fb_exchange_token=${accessToken}`
+            );
+
+            const newTokenData = await newTokenResponse.json();
+
+            if (!newTokenResponse.ok) {
+                throw new Error(
+                    `Failed to refresh access token: ${newTokenData.error?.message || 'Unknown error'}`
+                );
+            }
+
+            accessToken = newTokenData.access_token; // Use the new access token
+            console.log("New access token generated.");
         }
 
-        // Get the page access token
+        // Step 2: Get the page access token using the valid user access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Delete the post from Facebook
-        console.log("Before sending the postId:", postId);
+        // Step 3: Delete the post from Facebook
+        console.log("Deleting post with postId:", postId);
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
@@ -730,17 +725,13 @@ router.delete('/post/delete', async (req, res) => {
             );
         }
 
-        // Delete the post from the database
-        await FbPost.destroy({
-            where: { postId: postId, email: email },  // Ensure we match by postId and email
-        });
-
         res.json({ success: true, message: 'Post deleted successfully.' });
     } catch (error) {
         console.error('Error deleting post:', error);
         res.status(500).json({ error: 'Post deletion failed', details: error.message });
     }
 });
+
 
 
 
