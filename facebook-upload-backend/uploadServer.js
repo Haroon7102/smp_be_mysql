@@ -669,61 +669,72 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
+const isTokenExpired = (expiryTimestamp) => {
+    return Date.now() > expiryTimestamp;
+};
 
-
-router.delete('/post/delete', async (req, res) => {
-    let { accessToken, pageId, postId } = req.body;
-    postId = postId.replace(/^"|"$/g, ''); // Remove leading and trailing quotes
-
-    console.log("Data received for deletion:", req.body);
-
+const refreshAccessToken = async (shortLivedAccessToken) => {
     try {
-        // Step 1: Check if the token is valid
-        const tokenValidationResponse = await fetch(
-            `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${accessToken}`
+        const appId = '1332019044439778';
+        const appSecret = '84b1a81f8b8129f43983db4e9692a39a';
+
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedAccessToken}`
         );
 
-        const tokenValidation = await tokenValidationResponse.json();
+        const data = await response.json();
 
-        // If the token is not valid, regenerate it
-        if (!tokenValidation.data || !tokenValidation.data.is_valid) {
-            console.log("Access token expired. Generating a new one...");
-
-            // Regenerate a new user access token using your long-lived token or another method
-            const newTokenResponse = await fetch(
-                `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=1332019044439778&client_secret=84b1a81f8b8129f43983db4e9692a39a&fb_exchange_token=${accessToken}`
-            );
-
-            const newTokenData = await newTokenResponse.json();
-
-            if (!newTokenResponse.ok) {
-                throw new Error(
-                    `Failed to refresh access token: ${newTokenData.error?.message || 'Unknown error'}`
-                );
-            }
-
-            accessToken = newTokenData.access_token; // Use the new access token
-            console.log("New access token generated.");
+        if (!response.ok || data.error) {
+            throw new Error(data.error?.message || 'Failed to refresh token');
         }
 
-        // Step 2: Get the page access token using the valid user access token
+        return {
+            accessToken: data.access_token,
+            expiresIn: Date.now() + data.expires_in * 1000, // Convert expires_in (seconds) to a timestamp
+        };
+    } catch (error) {
+        console.error('Error refreshing access token:', error.message);
+        throw error;
+    }
+};
+router.delete('/post/delete', async (req, res) => {
+    let { accessToken, pageId, postId, email, tokenExpiry } = req.body; // Add tokenExpiry
+    postId = postId.replace(/^"|"$/g, ''); // Remove quotes
+
+    console.log('Data received:', req.body);
+
+    try {
+        // Check if the token is expired
+        if (isTokenExpired(tokenExpiry)) {
+            console.log('Access token expired. Generating a new one...');
+            const refreshedTokenData = await refreshAccessToken(accessToken);
+            accessToken = refreshedTokenData.accessToken; // Update the token
+            tokenExpiry = refreshedTokenData.expiresIn; // Update the expiry timestamp
+        }
+
+        // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
-        // Step 3: Delete the post from Facebook
-        console.log("Deleting post with postId:", postId);
+        // Delete the post from Facebook
+        console.log('Before sending the postId:', postId);
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
         const deleteResult = await deleteResponse.json();
-        console.log("Delete response from Facebook:", deleteResult);
+        console.log('Delete response from Facebook:', deleteResult);
 
         if (!deleteResponse.ok || !deleteResult.success) {
             throw new Error(
                 `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
             );
         }
+
+        // Delete the post from the database
+        await FbPost.destroy({
+            where: { postId: postId, email: email },
+        });
 
         res.json({ success: true, message: 'Post deleted successfully.' });
     } catch (error) {
@@ -732,6 +743,45 @@ router.delete('/post/delete', async (req, res) => {
     }
 });
 
+// router.delete('/post/delete', async (req, res) => {
+//     let { accessToken, pageId, postId, email } = req.body;  // Change const to let
+//     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
+
+
+//     console.log("data recived", req.body);
+
+//     try {
+//         // Get the page access token
+//         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+
+//         // Delete the post from Facebook
+//         console.log("before sending the postid", postId);
+
+//         const deleteResponse = await fetch(
+//             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
+//             { method: 'DELETE' }
+//         );
+
+//         const deleteResult = await deleteResponse.json();
+//         console.log("Delete response from Facebook:", deleteResult);
+
+//         if (!deleteResponse.ok || !deleteResult.success) {
+//             throw new Error(
+//                 `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
+//             );
+//         }
+
+//         // Delete the post from the database
+//         await FbPost.destroy({
+//             where: { postId: postId, email: email }, // Ensure we match by postId and email
+//         });
+
+//         res.json({ success: true, message: 'Post deleted successfully.' });
+//     } catch (error) {
+//         console.error('Error deleting post:', error);
+//         res.status(500).json({ error: 'Post deletion failed', details: error.message });
+//     }
+// });
 
 
 
