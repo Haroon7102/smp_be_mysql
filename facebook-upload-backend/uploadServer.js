@@ -690,8 +690,8 @@ const deletePostFromDatabase = async (postId, email) => {
 };
 
 router.delete('/post/delete', async (req, res) => {
-    const { postId, pageId, email, accessToken } = req.body;
-    console.log("data recived", postId, pageId, email, accessToken);
+    const { accessToken, pageId, postId, email } = req.body;
+    console.log("data recived", req.body);
     // if (!postId) {
     //     return res
     //         .status(400)
