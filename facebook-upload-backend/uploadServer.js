@@ -690,27 +690,27 @@ const deletePostFromDatabase = async (postId, email) => {
 };
 
 router.delete('/post/delete', async (req, res) => {
-    const { postId } = req.body;
-
-    if (!postId) {
-        return res
-            .status(400)
-            .json({ error: 'Post ID is required.' });
-    }
+    const { postId, pageId, email, accessToken } = req.body;
+    console.log("data recived", postId, pageId, email, accessToken);
+    // if (!postId) {
+    //     return res
+    //         .status(400)
+    //         .json({ error: 'Post ID is required.' });
+    // }
 
     try {
         // Fetch the post details from the database using the postId
-        const post = await FbPost.findOne({
-            attributes: ['accessToken', 'pageId', 'email'],  // Only fetch necessary fields
-            where: { postId: postId },
-        });
+        // const post = await FbPost.findOne({
+        //     attributes: ['accessToken', 'pageId', 'email'],  // Only fetch necessary fields
+        //     where: { postId: postId },
+        // });
 
-        if (!post) {
-            return res.status(404).json({ error: 'Post not found in the database.' });
-        }
+        // if (!post) {
+        //     return res.status(404).json({ error: 'Post not found in the database.' });
+        // }
 
-        // Extract the accessToken, pageId, and email from the database record
-        const { accessToken, pageId, email } = post;
+        // // Extract the accessToken, pageId, and email from the database record
+        // const { accessToken, pageId, email } = post;
 
         // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
