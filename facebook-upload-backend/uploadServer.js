@@ -669,61 +669,29 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
-const isTokenExpired = (expiryTimestamp) => {
-    return Date.now() > expiryTimestamp;
-};
 
-const refreshAccessToken = async (shortLivedAccessToken) => {
-    try {
-        const appId = '1332019044439778';
-        const appSecret = '84b1a81f8b8129f43983db4e9692a39a';
 
-        const response = await fetch(
-            `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedAccessToken}`
-        );
-
-        const data = await response.json();
-
-        if (!response.ok || data.error) {
-            throw new Error(data.error?.message || 'Failed to refresh token');
-        }
-
-        return {
-            accessToken: data.access_token,
-            expiresIn: Date.now() + data.expires_in * 1000, // Convert expires_in (seconds) to a timestamp
-        };
-    } catch (error) {
-        console.error('Error refreshing access token:', error.message);
-        throw error;
-    }
-};
 router.delete('/post/delete', async (req, res) => {
-    let { accessToken, pageId, postId, email, tokenExpiry } = req.body; // Add tokenExpiry
-    postId = postId.replace(/^"|"$/g, ''); // Remove quotes
+    let { accessToken, pageId, postId, email } = req.body;  // Change const to let
+    postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
 
-    console.log('Data received:', req.body);
+
+    console.log("data recived", req.body);
 
     try {
-        // Check if the token is expired
-        if (isTokenExpired(tokenExpiry)) {
-            console.log('Access token expired. Generating a new one...');
-            const refreshedTokenData = await refreshAccessToken(accessToken);
-            accessToken = refreshedTokenData.accessToken; // Update the token
-            tokenExpiry = refreshedTokenData.expiresIn; // Update the expiry timestamp
-        }
-
         // Get the page access token
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         // Delete the post from Facebook
-        console.log('Before sending the postId:', postId);
+        console.log("before sending the postid", postId);
+
         const deleteResponse = await fetch(
             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
         const deleteResult = await deleteResponse.json();
-        console.log('Delete response from Facebook:', deleteResult);
+        console.log("Delete response from Facebook:", deleteResult);
 
         if (!deleteResponse.ok || !deleteResult.success) {
             throw new Error(
@@ -733,7 +701,7 @@ router.delete('/post/delete', async (req, res) => {
 
         // Delete the post from the database
         await FbPost.destroy({
-            where: { postId: postId, email: email },
+            where: { postId: postId, email: email }, // Ensure we match by postId and email
         });
 
         res.json({ success: true, message: 'Post deleted successfully.' });
@@ -742,76 +710,6 @@ router.delete('/post/delete', async (req, res) => {
         res.status(500).json({ error: 'Post deletion failed', details: error.message });
     }
 });
-router.post('/generate-long-lived-token', async (req, res) => {
-    const { shortToken } = req.body;  // Get short-lived access token from request body
-    const appID = '1332019044439778';  // Replace with your Facebook App ID
-    const appSecret = '84b1a81f8b8129f43983db4e9692a39a';  // Replace with your Facebook App Secret
-    if (!shortToken) {
-        return res.status(400).json({ error: 'Short-lived token is required' });
-    }
-
-    // Facebook's API URL to exchange short-lived token
-    const url = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appID}&client_secret=${appSecret}&fb_exchange_token=${shortToken}`;
-
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        // Check if the response contains the long-lived token
-        if (data.access_token) {
-
-            console.log("access token generated:", accessToken);
-            res.json({ accessToken: data.access_token });
-            console.log("access token is:", accessToken);
-        } else {
-            // Handle errors if access_token is not returned
-            res.status(400).json({ error: 'Failed to generate long-lived token', details: data.error });
-        }
-    } catch (error) {
-        console.error('Error exchanging token:', error);
-        res.status(500).json({ error: 'Internal server error', details: error.message });
-    }
-});
-
-// router.delete('/post/delete', async (req, res) => {
-//     let { accessToken, pageId, postId, email } = req.body;  // Change const to let
-//     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
-
-
-//     console.log("data recived", req.body);
-
-//     try {
-//         // Get the page access token
-//         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
-
-//         // Delete the post from Facebook
-//         console.log("before sending the postid", postId);
-
-//         const deleteResponse = await fetch(
-//             `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
-//             { method: 'DELETE' }
-//         );
-
-//         const deleteResult = await deleteResponse.json();
-//         console.log("Delete response from Facebook:", deleteResult);
-
-//         if (!deleteResponse.ok || !deleteResult.success) {
-//             throw new Error(
-//                 `Failed to delete post on Facebook: ${deleteResult.error?.message || 'Unknown error'}`
-//             );
-//         }
-
-//         // Delete the post from the database
-//         await FbPost.destroy({
-//             where: { postId: postId, email: email }, // Ensure we match by postId and email
-//         });
-
-//         res.json({ success: true, message: 'Post deleted successfully.' });
-//     } catch (error) {
-//         console.error('Error deleting post:', error);
-//         res.status(500).json({ error: 'Post deletion failed', details: error.message });
-//     }
-// });
 
 
 
