@@ -691,6 +691,8 @@ const deletePostFromDatabase = async (postId, email) => {
 
 router.delete('/post/delete', async (req, res) => {
     const { accessToken, pageId, postId, email } = req.body;
+    postId = postId.replace(/^"|"$/g, ''); // Remove leading and trailing quotes
+
     console.log("data recived", req.body);
     // if (!postId) {
     //     return res
@@ -717,11 +719,9 @@ router.delete('/post/delete', async (req, res) => {
 
         // Delete the post from Facebook
         console.log("before sending the postid", postId);
-        const encodedPostId = encodeURIComponent(postId);
-        console.log("after sending the postid", encodedPostId);
 
         const deleteResponse = await fetch(
-            `https://graph.facebook.com/${encodedPostId}?access_token=${pageAccessToken}`,
+            `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
