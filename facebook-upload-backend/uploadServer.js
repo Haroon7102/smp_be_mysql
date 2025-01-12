@@ -690,8 +690,9 @@ const deletePostFromDatabase = async (postId, email) => {
 };
 
 router.delete('/post/delete', async (req, res) => {
-    const { accessToken, pageId, postId, email } = req.body;
-    postId = postId.replace(/^"|"$/g, ''); // Remove leading and trailing quotes
+    let { accessToken, pageId, postId, email } = req.body;  // Change const to let
+    postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
+
 
     console.log("data recived", req.body);
     // if (!postId) {
