@@ -672,7 +672,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 
 
 router.delete('/post/delete', async (req, res) => {
-    let { accessToken, pageId, postId, email } = req.body;  // Change const to let
+    let { pageId, postId, email } = req.body;  // Change const to let
     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
 
 
@@ -680,7 +680,7 @@ router.delete('/post/delete', async (req, res) => {
 
     try {
         // Get the page access token
-        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
 
         // Delete the post from Facebook
         console.log("before sending the postid", postId);
