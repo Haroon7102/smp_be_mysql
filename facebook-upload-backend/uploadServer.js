@@ -717,9 +717,10 @@ router.delete('/post/delete', async (req, res) => {
 
         // Delete the post from Facebook
         console.log("before sending the postid", postId);
+        const encodedPostId = encodeURIComponent(postId);
 
         const deleteResponse = await fetch(
-            `https://graph.facebook.com/${postId}?access_token=${pageAccessToken}`,
+            `https://graph.facebook.com/${encodedPostId}?access_token=${pageAccessToken}`,
             { method: 'DELETE' }
         );
 
