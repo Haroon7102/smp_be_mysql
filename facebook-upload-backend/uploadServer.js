@@ -691,7 +691,7 @@ router.delete('/post/delete', async (req, res) => {
 
             // Regenerate a new user access token using your long-lived token or another method
             const newTokenResponse = await fetch(
-                `https://graph.facebook.com/v12.0/oauth/access_token?grant_type=fb_exchange_token&client_id=1332019044439778&client_secret=84b1a81f8b8129f43983db4e9692a39a&fb_exchange_token=${accessToken}`
+                `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=1332019044439778&client_secret=84b1a81f8b8129f43983db4e9692a39a&fb_exchange_token=${accessToken}`
             );
 
             const newTokenData = await newTokenResponse.json();
