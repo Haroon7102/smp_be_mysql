@@ -606,24 +606,30 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
     const { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
-    console.log("data is:", req.body);
+    console.log("Request body:", req.body);  // Log the incoming request body
 
     const files = req.files;
+    console.log("Uploaded files:", files);  // Log the uploaded files
 
+    // Validate required fields
     if (!pageId || !postId) {
+        console.log("Missing required fields: pageId or postId");  // Log the missing fields
         return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
     }
 
     try {
         const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
+        console.log("Page access token retrieved:", pageAccessToken);  // Log the page access token
 
         // Handle media removal
         if (mediaToRemove && mediaToRemove.length > 0) {
+            console.log("Media to remove:", mediaToRemove);  // Log media IDs to remove
             for (const mediaId of mediaToRemove) {
-                await fetch(
+                const deleteResponse = await fetch(
                     `https://graph.facebook.com/v21.0/${mediaId}?access_token=${pageAccessToken}`,
                     { method: 'DELETE' }
                 );
+                console.log(`Media ${mediaId} deletion response:`, deleteResponse);
             }
         }
 
@@ -632,6 +638,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 
         // Handle new media uploads
         if (files && files.length > 0) {
+            console.log("Processing uploaded files for media");  // Log that media processing is starting
             const mediaUploads = files.map(async (file) => {
                 const formData = new FormData();
                 formData.append('source', file.buffer, {
@@ -652,6 +659,8 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
                 });
 
                 const result = await response.json();
+                console.log(`Media upload result for ${file.originalname}:`, result);  // Log media upload result
+
                 if (!response.ok || !result.id) {
                     throw new Error(`Media upload failed: ${result.error?.message || 'Unknown error'}`);
                 }
@@ -664,12 +673,14 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
             updatedMediaIds = await Promise.all(mediaUploads);
         }
 
-        // Update post on Facebook
+        // Prepare data for updating the post on Facebook
         const updateData = {
             access_token: pageAccessToken,
         };
         if (caption) updateData.message = caption;
         if (updatedMediaIds.length > 0) updateData.attached_media = JSON.stringify(updatedMediaIds);
+
+        console.log("Data prepared for Facebook update:", updateData);  // Log the data for the update
 
         const updateResponse = await fetch(
             `https://graph.facebook.com/v21.0/${postId}`,
@@ -680,19 +691,23 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         );
 
         const updateResult = await updateResponse.json();
+        console.log("Facebook update response:", updateResult);  // Log Facebook update response
+
         if (!updateResponse.ok) {
             throw new Error(`Failed to update post: ${updateResult.error?.message || 'Unknown error'}`);
         }
 
-        // Update database
+        // Update the database
         await updatePostInDatabase(postId, email, caption, updatedMediaUrls);
+        console.log("Post updated in database");
 
         res.json({ success: true, message: 'Post updated successfully.' });
     } catch (error) {
-        console.error('Error updating post:', error);
+        console.error('Error updating post:', error);  // Log error message
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
+
 
 
 
