@@ -605,7 +605,9 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 
 
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, postId, caption, email, postType, mediaToRemove } = req.body;
+    const { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
+    console.log("data is:", req.body);
+
     const files = req.files;
 
     if (!accessToken || !pageId || !postId) {
@@ -613,7 +615,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
 
         // Handle media removal
         if (mediaToRemove && mediaToRemove.length > 0) {
