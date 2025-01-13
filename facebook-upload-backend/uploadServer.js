@@ -606,6 +606,7 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
     const { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
+    postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
     console.log("Request body:", req.body);  // Log the incoming request body
 
     const files = req.files;
