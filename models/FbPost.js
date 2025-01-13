@@ -61,9 +61,9 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     // Associations
-    FbPost.associate = (models) => {
-        FbPost.belongsTo(models.User, { foreignKey: 'userId' });
-    };
+    // FbPost.associate = (models) => {
+    //     FbPost.belongsTo(models.User, { foreignKey: 'userId' });
+    // };
 
     return FbPost;
 };
