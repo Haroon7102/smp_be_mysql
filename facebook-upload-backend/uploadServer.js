@@ -608,6 +608,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
     let { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
     console.log("Request body:", req.body);  // Log the incoming request body
+    console.log("Request body:", postId);  // Log the incoming request body
 
     const files = req.files;
     console.log("Uploaded files:", files);  // Log the uploaded files
@@ -687,6 +688,9 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
             `https://graph.facebook.com/v21.0/${postId}`,
             {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: new URLSearchParams(updateData),
             }
         );
