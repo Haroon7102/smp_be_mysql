@@ -610,7 +610,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 
     const files = req.files;
 
-    if (!accessToken || !pageId || !postId) {
+    if (!pageId || !postId) {
         return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
     }
 
