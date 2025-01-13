@@ -577,8 +577,35 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     }
 });
 
+const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
+    try {
+        // Find the post in the database by `postId` and `email`
+        const post = await FbPost.findOne({ where: { postId, email } });
+
+        if (!post) {
+            throw new Error('Post not found in the database');
+        }
+
+        // Update the fields
+        await FbPost.update(
+            {
+                message: message || post.message, // Update the caption or keep the existing one
+                media: JSON.stringify(mediaUrls) || post.media, // Update media URLs or keep existing ones
+                mediaUrl: mediaUrls?.[0] ? JSON.stringify(mediaUrls) : post.mediaUrl, // Update the first media URL or keep existing
+            },
+            { where: { postId, email } }
+        );
+
+        console.log('Post updated successfully in the database');
+    } catch (error) {
+        console.error('Error updating post in the database:', error);
+        throw error;
+    }
+};
+
+
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
-    const { accessToken, pageId, postId, caption, email } = req.body;
+    const { accessToken, pageId, postId, caption, email, postType, mediaToRemove } = req.body;
     const files = req.files;
 
     if (!accessToken || !pageId || !postId) {
@@ -588,11 +615,21 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
     try {
         const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
+        // Handle media removal
+        if (mediaToRemove && mediaToRemove.length > 0) {
+            for (const mediaId of mediaToRemove) {
+                await fetch(
+                    `https://graph.facebook.com/v21.0/${mediaId}?access_token=${pageAccessToken}`,
+                    { method: 'DELETE' }
+                );
+            }
+        }
+
         let updatedMediaIds = [];
         let updatedMediaUrls = [];
 
+        // Handle new media uploads
         if (files && files.length > 0) {
-            // Re-upload media to Facebook
             const mediaUploads = files.map(async (file) => {
                 const formData = new FormData();
                 formData.append('source', file.buffer, {
@@ -601,14 +638,16 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
                 });
                 formData.append('published', 'false');
 
-                const response = await fetch(
-                    `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: formData.getHeaders(),
-                    }
-                );
+                const endpoint =
+                    postType === 'video'
+                        ? `https://graph.facebook.com/v21.0/${pageId}/videos`
+                        : `https://graph.facebook.com/v21.0/${pageId}/photos`;
+
+                const response = await fetch(`${endpoint}?access_token=${pageAccessToken}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: formData.getHeaders(),
+                });
 
                 const result = await response.json();
                 if (!response.ok || !result.id) {
@@ -621,46 +660,29 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
             });
 
             updatedMediaIds = await Promise.all(mediaUploads);
-
-            // Update post with new media
-            const updateData = {
-                attached_media: JSON.stringify(updatedMediaIds),
-                access_token: pageAccessToken,
-            };
-            if (caption) updateData.message = caption;
-
-            const updateResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${postId}`,
-                {
-                    method: 'POST',
-                    body: new URLSearchParams(updateData),
-                }
-            );
-
-            const updateResult = await updateResponse.json();
-            if (!updateResponse.ok) {
-                throw new Error(`Failed to update post: ${updateResult.error?.message || 'Unknown error'}`);
-            }
-        } else if (caption) {
-            // Only update the caption if no files are uploaded
-            const updateResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${postId}`,
-                {
-                    method: 'POST',
-                    body: new URLSearchParams({
-                        message: caption,
-                        access_token: pageAccessToken,
-                    }),
-                }
-            );
-
-            const updateResult = await updateResponse.json();
-            if (!updateResponse.ok) {
-                throw new Error(`Failed to update caption: ${updateResult.error?.message || 'Unknown error'}`);
-            }
         }
 
-        // Update database entry
+        // Update post on Facebook
+        const updateData = {
+            access_token: pageAccessToken,
+        };
+        if (caption) updateData.message = caption;
+        if (updatedMediaIds.length > 0) updateData.attached_media = JSON.stringify(updatedMediaIds);
+
+        const updateResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${postId}`,
+            {
+                method: 'POST',
+                body: new URLSearchParams(updateData),
+            }
+        );
+
+        const updateResult = await updateResponse.json();
+        if (!updateResponse.ok) {
+            throw new Error(`Failed to update post: ${updateResult.error?.message || 'Unknown error'}`);
+        }
+
+        // Update database
         await updatePostInDatabase(postId, email, caption, updatedMediaUrls);
 
         res.json({ success: true, message: 'Post updated successfully.' });
@@ -669,6 +691,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
+
 
 
 router.delete('/post/delete', async (req, res) => {
