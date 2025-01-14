@@ -14,7 +14,7 @@ const jwt = require('jsonwebtoken'); // Ensure JWT is required
 // const facebookRoutes = require('./auth/facebookRoutes');
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
 const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace with actual path to awsS3.js
-const cron = require('./cron/cronJob.js');
+const cronRoutes = require('./cron/cronJob.js'); // Adjust the path
 
 
 const app = express();
@@ -29,6 +29,7 @@ app.use((req, res, next) => {
     });
     next();
 });
+app.use('/facebook-upload', cronRoutes);
 
 // Middleware setup
 // app.use(cors({
