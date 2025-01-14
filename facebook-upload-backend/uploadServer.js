@@ -771,32 +771,35 @@ router.delete('/post/delete', async (req, res) => {
 
 router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
     const { caption, scheduledDate, pageId, accessToken, postType, email } = req.body;
-    const file = req.files ? req.files.file : null;  // Assuming you're using something like multer for file uploads
 
     if (!accessToken || !pageId || !scheduledDate) {
         return res.status(400).json({ error: 'Access token, page ID, and scheduled date are required.' });
     }
 
     try {
-        const fileBuffer = file.Data;
-
+        // Handle files (if any)
+        const files = req.files || []; // `req.files` is an array of uploaded files
+        const fileBuffers = files.map(file => ({
+            buffer: file.buffer, // File binary data
+            originalName: file.originalname, // File name
+            mimetype: file.mimetype, // MIME type
+        }));
 
         // Save post data including scheduledDate and isScheduled
         const post = await FbPost.create({
-
             accessToken: accessToken,
             email: email, // Assuming email is used for the user ID
             pageId: pageId,
             message: caption,
             postType: postType,
-            scheduledDate: new Date(scheduledDate),  // Convert to Date object
+            scheduledDate: new Date(scheduledDate), // Convert to Date object
             isScheduled: true,
-            file: fileBuffer,
+            file: JSON.stringify(fileBuffers), // Save file data as JSON in the database
         });
 
         res.status(201).json({
             message: 'Post saved successfully!',
-            post: newPost,
+            post: post,
         });
     } catch (error) {
         console.error('Error during scheduling post:', error);
