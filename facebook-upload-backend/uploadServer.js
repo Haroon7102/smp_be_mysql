@@ -118,6 +118,7 @@ const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
 const { FbPost } = require('../models'); // Ensure you have a Post model
+const cron = require('node-cron');
 
 require('dotenv').config();
 
@@ -807,7 +808,58 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
     }
 });
 
+cron.schedule('* * * * *', async () => {
+    console.log('Checking for scheduled posts...');
 
+    try {
+        // Get all posts where scheduledDate <= now and isScheduled is true
+        const posts = await FbPost.findAll({
+            where: {
+                isScheduled: true,
+                scheduledDate: {
+                    [Op.lte]: new Date(), // Sequelize operator to check if date is less than or equal to now
+                },
+            },
+        });
+
+        if (posts.length === 0) {
+            console.log('No scheduled posts to process.');
+            return;
+        }
+
+        console.log(`Found ${posts.length} scheduled post(s) to process.`);
+
+        for (const post of posts) {
+            try {
+                // Prepare data for the upload route
+                const uploadData = {
+                    caption: post.message,
+                    pageId: post.pageId,
+                    accessToken: post.accessToken,
+                    postType: post.postType,
+                    files: JSON.parse(post.file), // Parse the file data
+                };
+
+                // Send the post to the upload route
+                const response = await axios.post('https://smp-be-mysql.vercel.app/facebook-upload/upload', uploadData);
+
+                if (response.status === 200) {
+                    console.log(`Successfully uploaded post with ID ${post.id}.`);
+
+                    // Mark post as uploaded
+                    post.isScheduled = false;
+                    await post.save();
+                } else {
+                    console.error(`Failed to upload post with ID ${post.id}:`, response.data);
+                }
+            } catch (error) {
+                console.error(`Error uploading post with ID ${post.id}:`, error.message);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking scheduled posts:', error.message);
+    }
+});
 
 
 
