@@ -118,7 +118,7 @@ const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
 const { FbPost } = require('../models'); // Ensure you have a Post model
-const cron = require('node-cron');
+// const cron = require('node-cron');
 
 require('dotenv').config();
 
@@ -808,61 +808,61 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
     }
 });
 
-cron.schedule('* * * * *', async () => {
-    console.log(`[${new Date().toISOString()}] Checking for scheduled posts...`);
+// cron.schedule('* * * * *', async () => {
+//     console.log(`[${new Date().toISOString()}] Checking for scheduled posts...`);
 
-    try {
-        // Fetch scheduled posts from the database
-        const posts = await FbPost.findAll({
-            where: {
-                isScheduled: true,
-                scheduledDate: { [Op.lte]: new Date() },
-            },
-        });
+//     try {
+//         // Fetch scheduled posts from the database
+//         const posts = await FbPost.findAll({
+//             where: {
+//                 isScheduled: true,
+//                 scheduledDate: { [Op.lte]: new Date() },
+//             },
+//         });
 
-        if (posts.length === 0) {
-            console.log('No scheduled posts found.');
-            return;
-        }
+//         if (posts.length === 0) {
+//             console.log('No scheduled posts found.');
+//             return;
+//         }
 
-        console.log(`Found ${posts.length} scheduled post(s).`);
+//         console.log(`Found ${posts.length} scheduled post(s).`);
 
-        for (const post of posts) {
-            console.log(`Processing post ID: ${post.id}`);
+//         for (const post of posts) {
+//             console.log(`Processing post ID: ${post.id}`);
 
-            // Prepare the upload data
-            const uploadData = {
-                caption: post.message,
-                pageId: post.pageId,
-                accessToken: post.accessToken,
-                postType: post.postType,
-                files: JSON.parse(post.file), // Parse file data
-            };
+//             // Prepare the upload data
+//             const uploadData = {
+//                 caption: post.message,
+//                 pageId: post.pageId,
+//                 accessToken: post.accessToken,
+//                 postType: post.postType,
+//                 files: JSON.parse(post.file), // Parse file data
+//             };
 
-            // Log the payload being sent
-            console.log(`Payload for post ID ${post.id}:`, uploadData);
+//             // Log the payload being sent
+//             console.log(`Payload for post ID ${post.id}:`, uploadData);
 
-            try {
-                // Make the API call to the upload route
-                const response = await axios.post('https://smp-be-mysql.vercel.app/facebook-upload/upload', uploadData);
+//             try {
+//                 // Make the API call to the upload route
+//                 const response = await axios.post('https://smp-be-mysql.vercel.app/facebook-upload/upload', uploadData);
 
-                if (response.status === 200) {
-                    console.log(`Successfully uploaded post with ID ${post.id}.`);
+//                 if (response.status === 200) {
+//                     console.log(`Successfully uploaded post with ID ${post.id}.`);
 
-                    // Mark the post as uploaded in the database
-                    post.isScheduled = false;
-                    await post.save();
-                } else {
-                    console.error(`Failed to upload post with ID ${post.id}:`, response.data);
-                }
-            } catch (error) {
-                console.error(`Error uploading post with ID ${post.id}:`, error.message);
-            }
-        }
-    } catch (error) {
-        console.error('Error checking scheduled posts:', error.message);
-    }
-});
+//                     // Mark the post as uploaded in the database
+//                     post.isScheduled = false;
+//                     await post.save();
+//                 } else {
+//                     console.error(`Failed to upload post with ID ${post.id}:`, response.data);
+//                 }
+//             } catch (error) {
+//                 console.error(`Error uploading post with ID ${post.id}:`, error.message);
+//             }
+//         }
+//     } catch (error) {
+//         console.error('Error checking scheduled posts:', error.message);
+//     }
+// });
 
 
 
