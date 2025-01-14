@@ -618,7 +618,7 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 
 
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
-    let { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
+    let { accessToken, pageId, postId, caption, email, postType, mediaToRemove } = req.body;
     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
     console.log("Request body:", req.body);  // Log the incoming request body
     console.log("Request body:", postId);  // Log the incoming request body
@@ -633,7 +633,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
     }
 
     try {
-        const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
         console.log("Page access token retrieved:", pageAccessToken);  // Log the page access token
 
         // Handle media removal
@@ -730,7 +730,7 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
 
 
 router.delete('/post/delete', async (req, res) => {
-    let { pageId, postId, email } = req.body;  // Change const to let
+    let { accessToken, pageId, postId, email } = req.body;  // Change const to let
     postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
 
 
@@ -738,7 +738,7 @@ router.delete('/post/delete', async (req, res) => {
 
     try {
         // Get the page access token
-        const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
 
         // Delete the post from Facebook
         console.log("before sending the postid", postId);
