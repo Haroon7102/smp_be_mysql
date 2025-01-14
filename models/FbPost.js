@@ -45,6 +45,15 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             // Add the new column here
         },
+        scheduledDate: {
+            type: DataTypes.DATE,  // This will map to your scheduledDate column in the database
+            allowNull: true,       // You can change this to false if necessary
+        },
+        isScheduled: {
+            type: DataTypes.BOOLEAN, // This will map to your isScheduled column
+            defaultValue: false,     // Default value set to false
+            allowNull: false,
+        },
         createdAt: {
             type: DataTypes.DATE,
             allowNull: false,

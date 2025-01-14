@@ -769,6 +769,134 @@ router.delete('/post/delete', async (req, res) => {
     }
 });
 
+router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
+    const { caption, scheduledDate, pageId, accessToken, postType, email } = req.body;
+    const files = req.files;
+
+    if (!accessToken || !pageId || !scheduledDate) {
+        return res.status(400).json({ error: 'Access token, page ID, and scheduled date are required.' });
+    }
+
+    try {
+        const pageAccessToken = await getPageAccessToken(accessToken, pageId);
+        const pageName = await fetchPageName(pageId, pageAccessToken);
+
+        let mediaIds = [];
+        let mediaUrls = [];
+        let postId = null;
+
+        // Handle file uploads if any
+        if (files && files.length > 0) {
+            if (postType === 'feed') {
+                const photoUploads = files.map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('source', file.buffer, {
+                        filename: file.originalname || 'photo.jpg',
+                        contentType: file.mimetype || 'image/jpeg',
+                    });
+                    formData.append('published', 'false');
+
+                    const response = await fetch(
+                        `https://graph.facebook.com/v21.0/${pageId}/photos?access_token=${pageAccessToken}`,
+                        {
+                            method: 'POST',
+                            body: formData,
+                            headers: formData.getHeaders(),
+                        }
+                    );
+
+                    const result = await response.json();
+                    if (!response.ok || !result.id) {
+                        throw new Error(`Photo upload failed: ${result.error?.message || 'Unknown error'}`);
+                    }
+
+                    const mediaUrl = await fetchMediaUrlFromFacebook(result.id, pageAccessToken);
+                    mediaUrls.push(mediaUrl);
+                    return { media_fbid: result.id };
+                });
+
+                mediaIds = await Promise.all(photoUploads);
+
+                const postData = {
+                    attached_media: JSON.stringify(mediaIds),
+                    access_token: pageAccessToken,
+                };
+                if (caption) postData.message = caption;
+
+                const postResponse = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+                    method: 'POST',
+                    body: new URLSearchParams(postData),
+                });
+
+                const postResult = await postResponse.json();
+                if (!postResponse.ok || !postResult.id) {
+                    throw new Error(`Failed to create post: ${postResult.error?.message || 'Unknown error'}`);
+                }
+
+                postId = postResult.id;
+            } else if (postType === 'videos' || postType === 'reels') {
+                const videoBuffer = files[0].buffer;
+
+                const formData = new FormData();
+                formData.append('source', videoBuffer, {
+                    filename: files[0].originalname,
+                    contentType: files[0].mimetype,
+                });
+                if (caption) formData.append('description', caption);
+
+                const videoResponse = await fetch(
+                    `https://graph.facebook.com/v21.0/${pageId}/videos?access_token=${pageAccessToken}`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        headers: formData.getHeaders(),
+                    }
+                );
+
+                const videoResult = await videoResponse.json();
+                if (!videoResponse.ok || !videoResult.id) {
+                    throw new Error(`${postType} upload failed: ${videoResult.error?.message || 'Unknown error'}`);
+                }
+
+                postId = videoResult.id;
+
+                console.log(`Video uploaded with ID: ${postId}. Waiting for processing...`);
+                await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait for 10 seconds
+
+                const mediaUrl = await fetchMediaUrlFromFacebook(videoResult.id, pageAccessToken, 5, 5000);
+                mediaUrls.push(mediaUrl);
+                mediaIds.push(videoResult.id);
+            }
+        } else {
+            const postResult = await postMessageToFacebook(pageId, pageAccessToken, caption);
+            postId = postResult.id;
+        }
+
+        // Save post data including scheduledDate and isScheduled
+        const post = await FbPost.create({
+            email: email, // Assuming email is used for the user ID
+            pageId: pageId,
+            pageName: pageName,
+            message: caption,
+            media: JSON.stringify(mediaIds),
+            mediaUrl: JSON.stringify(mediaUrls), // Save the first media URL (optional)
+            scheduledDate: new Date(scheduledDate),  // Convert to Date object
+            isScheduled: true,
+        });
+
+        return res.json({
+            success: true,
+            postId: post.id,
+            message: 'Post scheduled successfully.',
+            mediaIds: mediaIds,
+            mediaUrls: mediaUrls,
+        });
+    } catch (error) {
+        console.error('Error during scheduling post:', error);
+        return res.status(500).json({ error: 'Scheduling post failed', details: error.message });
+    }
+});
+
 
 
 
