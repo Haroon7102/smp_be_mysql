@@ -54,6 +54,10 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: false,     // Default value set to false
             allowNull: false,
         },
+        file: {
+            type: DataTypes.BLOB('long'), // Change this if using TEXT for Base64
+            allowNull: true,
+        },
         createdAt: {
             type: DataTypes.DATE,
             allowNull: false,
