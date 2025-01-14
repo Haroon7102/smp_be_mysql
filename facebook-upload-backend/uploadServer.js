@@ -809,44 +809,47 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
 });
 
 cron.schedule('* * * * *', async () => {
-    console.log('Checking for scheduled posts...');
+    console.log(`[${new Date().toISOString()}] Checking for scheduled posts...`);
 
     try {
-        // Get all posts where scheduledDate <= now and isScheduled is true
+        // Fetch scheduled posts from the database
         const posts = await FbPost.findAll({
             where: {
                 isScheduled: true,
-                scheduledDate: {
-                    [Op.lte]: new Date(), // Sequelize operator to check if date is less than or equal to now
-                },
+                scheduledDate: { [Op.lte]: new Date() },
             },
         });
 
         if (posts.length === 0) {
-            console.log('No scheduled posts to process.');
+            console.log('No scheduled posts found.');
             return;
         }
 
-        console.log(`Found ${posts.length} scheduled post(s) to process.`);
+        console.log(`Found ${posts.length} scheduled post(s).`);
 
         for (const post of posts) {
-            try {
-                // Prepare data for the upload route
-                const uploadData = {
-                    caption: post.message,
-                    pageId: post.pageId,
-                    accessToken: post.accessToken,
-                    postType: post.postType,
-                    files: JSON.parse(post.file), // Parse the file data
-                };
+            console.log(`Processing post ID: ${post.id}`);
 
-                // Send the post to the upload route
+            // Prepare the upload data
+            const uploadData = {
+                caption: post.message,
+                pageId: post.pageId,
+                accessToken: post.accessToken,
+                postType: post.postType,
+                files: JSON.parse(post.file), // Parse file data
+            };
+
+            // Log the payload being sent
+            console.log(`Payload for post ID ${post.id}:`, uploadData);
+
+            try {
+                // Make the API call to the upload route
                 const response = await axios.post('https://smp-be-mysql.vercel.app/facebook-upload/upload', uploadData);
 
                 if (response.status === 200) {
                     console.log(`Successfully uploaded post with ID ${post.id}.`);
 
-                    // Mark post as uploaded
+                    // Mark the post as uploaded in the database
                     post.isScheduled = false;
                     await post.save();
                 } else {
@@ -860,6 +863,7 @@ cron.schedule('* * * * *', async () => {
         console.error('Error checking scheduled posts:', error.message);
     }
 });
+
 
 
 
