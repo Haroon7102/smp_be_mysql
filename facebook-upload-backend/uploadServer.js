@@ -586,12 +586,18 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
             throw new Error('Post not found in the database');
         }
 
+        // Parse existing media from the database (if stored as JSON string)
+        const existingMedia = post.media ? JSON.parse(post.media) : [];
+        const updatedMedia = mediaUrls && mediaUrls.length > 0
+            ? [...existingMedia, ...mediaUrls] // Merge new media URLs with existing ones
+            : existingMedia; // Retain existing media if no new media is provided
+
         // Update the fields
         await FbPost.update(
             {
                 message: message || post.message, // Update the caption or keep the existing one
-                media: JSON.stringify(mediaUrls) || post.media, // Update media URLs or keep existing ones
-                mediaUrl: mediaUrls?.[0] ? JSON.stringify(mediaUrls) : post.mediaUrl, // Update the first media URL or keep existing
+                media: JSON.stringify(updatedMedia), // Update with merged media URLs
+                mediaUrl: updatedMedia.length > 0 ? updatedMedia[0] : null, // Set the first media URL or null if no media
             },
             { where: { postId, email } }
         );
@@ -604,44 +610,44 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 };
 
 
+
 router.put('/post/update', upload.array('files', 10), async (req, res) => {
     let { pageId, postId, caption, email, postType, mediaToRemove } = req.body;
-    postId = postId.replace(/^"|"$/g, ''); // Remove leading and trailing quotes
+    postId = postId.replace(/^"|"$/g, '');  // Remove leading and trailing quotes
+    console.log("Request body:", req.body);  // Log the incoming request body
+    console.log("Request body:", postId);  // Log the incoming request body
 
     const files = req.files;
+    console.log("Uploaded files:", files);  // Log the uploaded files
 
+    // Validate required fields
     if (!pageId || !postId) {
-        return res.status(400).json({ error: 'Page ID and post ID are required.' });
+        console.log("Missing required fields: pageId or postId");  // Log the missing fields
+        return res.status(400).json({ error: 'Access token, page ID, and post ID are required.' });
     }
 
     try {
-        const pageAccessToken = await getPageAccessToken(
-            'EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9',
-            pageId
-        );
-
-        // Fetch existing post data from the database
-        const existingPost = await getPostFromDatabase(postId, email);
-        if (!existingPost) {
-            return res.status(404).json({ error: 'Post not found.' });
-        }
-
-        // Parse existing media URLs
-        let currentMediaUrls = existingPost.media ? JSON.parse(existingPost.media) : [];
+        const pageAccessToken = await getPageAccessToken('EAAS7dtn6VuIBO1Icoa1etYYNWd1ckNJiOyZBNrCrMb52hTZAZCGIkReSy4w3x74gZCJbbxKrG1HeLtFpk5HA5JZCsvCMHazLtL6dqqATklMTBZAvUez6hojhnr2l7lzvh7ryXfhZBJMNojZBfVMck7rPXUwR6M7HandFxelqZBRjihFSGKF5gRPtefDiRPZCM8ZA6VktYCrgfh67C10MzC9', pageId);
+        console.log("Page access token retrieved:", pageAccessToken);  // Log the page access token
 
         // Handle media removal
-        if (mediaToRemove) {
-            const mediaToRemoveArray = Array.isArray(mediaToRemove) ? mediaToRemove : [mediaToRemove];
-            for (const mediaId of mediaToRemoveArray) {
-                await fetch(`https://graph.facebook.com/${mediaId}?access_token=${pageAccessToken}`, {
-                    method: 'DELETE',
-                });
-                currentMediaUrls = currentMediaUrls.filter((url) => !url.includes(mediaId));
+        if (mediaToRemove && mediaToRemove.length > 0) {
+            console.log("Media to remove:", mediaToRemove);  // Log media IDs to remove
+            for (const mediaId of mediaToRemove) {
+                const deleteResponse = await fetch(
+                    `https://graph.facebook.com/${mediaId}?access_token=${pageAccessToken}`,
+                    { method: 'DELETE' }
+                );
+                console.log(`Media ${mediaId} deletion response:`, deleteResponse);
             }
         }
 
+        let updatedMediaIds = [];
+        let updatedMediaUrls = [];
+
         // Handle new media uploads
         if (files && files.length > 0) {
+            console.log("Processing uploaded files for media");  // Log that media processing is starting
             const mediaUploads = files.map(async (file) => {
                 const formData = new FormData();
                 formData.append('source', file.buffer, {
@@ -662,31 +668,28 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
                 });
 
                 const result = await response.json();
+                console.log(`Media upload result for ${file.originalname}:`, result);  // Log media upload result
 
                 if (!response.ok || !result.id) {
                     throw new Error(`Media upload failed: ${result.error?.message || 'Unknown error'}`);
                 }
 
                 const mediaUrl = await fetchMediaUrlFromFacebookimg(result.id, pageAccessToken);
-                currentMediaUrls.push(mediaUrl);
+                updatedMediaUrls.push(mediaUrl);
                 return { media_fbid: result.id };
             });
 
-            const uploadedMediaIds = await Promise.all(mediaUploads);
-            if (uploadedMediaIds.length > 0) {
-                currentMediaUrls = currentMediaUrls.concat(uploadedMediaIds.map((media) => media.media_fbid));
-            }
+            updatedMediaIds = await Promise.all(mediaUploads);
         }
 
-        // Update the post on Facebook
+        // Prepare data for updating the post on Facebook
         const updateData = {
             access_token: pageAccessToken,
-            message: caption || existingPost.caption, // Update caption if provided
         };
+        if (caption) updateData.message = caption;
+        if (updatedMediaIds.length > 0) updateData.attached_media = JSON.stringify(updatedMediaIds);
 
-        if (currentMediaUrls.length > 0) {
-            updateData.attached_media = JSON.stringify(currentMediaUrls.map((id) => ({ media_fbid: id })));
-        }
+        console.log("Data prepared for Facebook update:", updateData);  // Log the data for the update
 
         const updateResponse = await fetch(
             `https://graph.facebook.com/v21.0/${postId}`,
@@ -695,24 +698,27 @@ router.put('/post/update', upload.array('files', 10), async (req, res) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(updateData),
+                body: new URLSearchParams(updateData),
             }
         );
 
         const updateResult = await updateResponse.json();
+        console.log("Facebook update response:", updateResult);  // Log Facebook update response
+
         if (!updateResponse.ok) {
             throw new Error(`Failed to update post: ${updateResult.error?.message || 'Unknown error'}`);
         }
 
         // Update the database
-        await updatePostInDatabase(postId, email, caption, currentMediaUrls);
-        res.json({ success: true, message: 'Post updated successfully.', media: currentMediaUrls });
+        await updatePostInDatabase(postId, email, caption, updatedMediaUrls);
+        console.log("Post updated in database");
+
+        res.json({ success: true, message: 'Post updated successfully.' });
     } catch (error) {
-        console.error('Error updating post:', error);
+        console.error('Error updating post:', error);  // Log error message
         res.status(500).json({ error: 'Post update failed', details: error.message });
     }
 });
-
 
 
 
