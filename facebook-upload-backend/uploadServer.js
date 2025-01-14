@@ -588,16 +588,21 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
 
         // Parse existing media from the database (if stored as JSON string)
         const existingMedia = post.media ? JSON.parse(post.media) : [];
-        const updatedMedia = mediaUrls && mediaUrls.length > 0
-            ? [...existingMedia, ...mediaUrls] // Merge new media URLs with existing ones
-            : existingMedia; // Retain existing media if no new media is provided
 
-        // Update the fields
+        // Check if mediaUrls is provided and contains data
+        const updatedMedia = (mediaUrls && mediaUrls.length > 0)
+            ? mediaUrls // Use the updated media URLs
+            : existingMedia; // Use the existing media if no updated URLs are provided
+
+        // Determine the first media URL (if any)
+        const firstMediaUrl = updatedMedia.length > 0 ? updatedMedia[0] : null;
+
+        // Update the post
         await FbPost.update(
             {
-                message: message || post.message, // Update the caption or keep the existing one
-                media: JSON.stringify(updatedMedia), // Update with merged media URLs
-                mediaUrl: updatedMedia.length > 0 ? updatedMedia[0] : null, // Set the first media URL or null if no media
+                message: message || post.message, // Update the caption or retain the existing one
+                media: JSON.stringify(updatedMedia), // Save the updated media (or existing media)
+                mediaUrl: firstMediaUrl, // Set the first media URL (or null if none)
             },
             { where: { postId, email } }
         );
@@ -608,6 +613,7 @@ const updatePostInDatabase = async (postId, email, message, mediaUrls) => {
         throw error;
     }
 };
+
 
 
 
