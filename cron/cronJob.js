@@ -11,8 +11,8 @@ router.get('/trigger-cron', async (req, res) => {
 
     try {
         // Get the current time rounded to the minute in the 'Asia/Karachi' timezone
-        const currentTime = moment().tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
-        console.log(`Current Time: ${currentTime}`);
+        // const currentTime = moment().tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
+        // console.log(`Current Time: ${currentTime}`);
 
         // Fetch all scheduled posts
         const posts = await SchPost.findAll({
@@ -21,12 +21,27 @@ router.get('/trigger-cron', async (req, res) => {
             }
         });
 
+        // Get current time in Asia/Karachi timezone
+        const now = new Date();
+        const currentTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Karachi" }));
+        currentTime.setSeconds(0, 0); // Remove seconds and milliseconds
+
         // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
-            const scheduledTime = moment.tz(post.scheduledDate, 'Asia/Karachi').startOf('minute'); // Treat scheduledDate as already in Asia/Karachi
-            console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledTime.format('YYYY-MM-DD HH:mm')}`);
-            return scheduledTime.isSame(currentTime); // Compare scheduled time with current time
+            const scheduledTime = new Date(post.scheduledDate); // Scheduled time from the database
+            scheduledTime.setSeconds(0, 0); // Remove seconds and milliseconds
+
+            console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledTime.toISOString().slice(0, 16).replace('T', ' ')}`);
+            return scheduledTime.getTime() === currentTime.getTime(); // Compare timestamps
         });
+
+        if (postsToProcess.length === 0) {
+            console.log("No posts are due for processing at this time.");
+        } else {
+            console.log("Posts due for processing:", postsToProcess);
+            // Add your logic to process the posts
+        }
+
 
 
         if (postsToProcess.length === 0) {
