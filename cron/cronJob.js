@@ -17,9 +17,13 @@ router.get('/trigger-cron', async (req, res) => {
         const posts = await SchPost.findAll({
             where: {
                 isScheduled: true,
-                scheduledDate: { [Op.gte]: currentTime }, // Posts scheduled for the future (>= currentTime)
-            },
+                scheduledDate: {
+                    [Op.gte]: currentTime // Posts scheduled for the future (>= currentTime)
+                },
+                order: [['scheduledDate', 'ASC']],
+            }
         });
+
 
         if (posts.length === 0) {
             console.log('No scheduled posts to process.');
@@ -38,10 +42,22 @@ router.get('/trigger-cron', async (req, res) => {
             let files = [];
             try {
                 files = post.file ? JSON.parse(post.file) : [];
+                files = files.map((file) => {
+                    const fileBuffer = fs.readFileSync(file.filePath); // Read file into buffer
+                    const filename = file.filePath.split('/').pop(); // Extract file name
+                    const mimeType = file.mimeType || 'application/octet-stream'; // Default MIME type
+
+                    return {
+                        buffer: fileBuffer,
+                        originalname: filename,
+                        mimetype: mimeType,
+                    };
+                });
             } catch (error) {
-                console.error(`Invalid file format for post ID ${post.id}:`, error.message);
+                console.error(`Error processing files for post ID ${post.id}:`, error.message);
                 continue; // Skip this post
             }
+
 
             const uploadData = {
                 caption: post.caption,
@@ -49,6 +65,7 @@ router.get('/trigger-cron', async (req, res) => {
                 accessToken: post.accessToken,
                 postType: post.postType,
                 files,
+                email: post.email,
             };
 
             try {
