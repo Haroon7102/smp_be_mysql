@@ -224,3 +224,4 @@ app.post('/callback', (req, res) => {
     // Handle the incoming data (e.g., store it in the database, process it, etc.)
     res.sendStatus(200); // Respond with 200 OK
 });
+module.exports = app;
