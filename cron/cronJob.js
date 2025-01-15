@@ -17,9 +17,8 @@ router.get('/trigger-cron', async (req, res) => {
         const posts = await SchPost.findAll({
             where: {
                 isScheduled: true,
-                scheduledDate: {
-                    [Op.gte]: currentTime // Posts scheduled for the future (>= currentTime)
-                },
+                scheduledDate: currentTime,  // Match exactly with the current time
+
             }
         });
 
@@ -44,6 +43,14 @@ router.get('/trigger-cron', async (req, res) => {
                 try {
                     // Assuming `post.file` contains blob data as a JSON string
                     files = JSON.parse(post.file);
+                    // Here we will convert the files to be ready for the upload route
+                    files = files.map(file => {
+                        return {
+                            buffer: Buffer.from(file.data, 'base64'), // Assuming the file data is in base64 format
+                            originalname: file.name,
+                            mimetype: file.mimeType,
+                        };
+                    });
                 } catch (error) {
                     console.error(`Invalid file format for post ID ${post.id}:`, error.message);
                     return; // Skip this post if files are invalid
