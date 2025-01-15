@@ -3,8 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const axios = require('axios');
-const SchPost = require('../models/SchPost');
-
+const { SchPost } = require('../models');
 router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
 

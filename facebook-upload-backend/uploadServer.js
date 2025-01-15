@@ -118,7 +118,7 @@ const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
 const { FbPost } = require('../models'); // Ensure you have a Post model
-const SchPost = require('../models/SchPost');
+const { SchPost } = require('../models');
 // const cron = require('node-cron');
 
 require('dotenv').config();
