@@ -20,7 +20,6 @@ router.get('/trigger-cron', async (req, res) => {
                 scheduledDate: {
                     [Op.gte]: currentTime // Posts scheduled for the future (>= currentTime)
                 },
-                order: [['scheduledDate', 'ASC']],
             }
         });
 
