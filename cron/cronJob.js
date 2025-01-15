@@ -23,7 +23,8 @@ router.get('/trigger-cron', async (req, res) => {
 
         // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
-            const scheduledDate = moment(post.scheduledDate).startOf('minute').format('YYYY-MM-DD HH:mm');
+            // Convert the scheduled date from UTC to 'Asia/Karachi' timezone
+            const scheduledDate = moment(post.scheduledDate).tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
             console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledDate}`);
             return scheduledDate === currentTime; // Match times exactly
         });
@@ -75,6 +76,7 @@ router.get('/trigger-cron', async (req, res) => {
         res.status(500).json({ error: 'Error executing cron job.', details: error.message });
     }
 });
+
 
 
 module.exports = router;
