@@ -70,7 +70,23 @@ router.get('/trigger-cron', async (req, res) => {
 
             // Assuming `post.file` contains the file data (Buffer or Blob)
             files.forEach((file, index) => {
-                formData.append('files', file);  // Use 'files' as the field name if uploading multiple files
+                // Check if the file exists
+                if (file) {
+                    let fileBlob;
+
+                    // If post.file is base64 string, convert to Buffer, then to Blob
+                    if (typeof file === 'string' && file.startsWith('data:')) {
+                        const base64Data = file.split(',')[1];  // Get the base64 data part
+                        const buffer = Buffer.from(base64Data, 'base64');
+                        fileBlob = new Blob([buffer], { type: 'application/octet-stream' });
+                    } else {
+                        // If it's already a Blob or file object, you can append it directly
+                        fileBlob = file;
+                    }
+
+                    // Append the file to FormData, with a unique name for each file (like file1.jpg, file2.jpg)
+                    formData.append('files', fileBlob, `file${index}.jpg`);
+                }
             });
 
             try {
