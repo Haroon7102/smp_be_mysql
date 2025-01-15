@@ -10,84 +10,62 @@ router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
 
     try {
+        // Get the current time rounded to the minute in the 'Asia/Karachi' timezone
         const currentTime = moment().tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
+        console.log(`Current Time: ${currentTime}`);
 
+        // Fetch all scheduled posts
         const posts = await SchPost.findAll({
             where: {
-                isScheduled: true,
+                isScheduled: true, // Only fetch posts that are scheduled
             }
         });
 
-        // Filter posts based on the scheduled date matching the current time (rounded to the minute)
+        // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
             const scheduledDate = moment(post.scheduledDate).startOf('minute').format('YYYY-MM-DD HH:mm');
-            return scheduledDate === currentTime;
+            console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledDate}`);
+            return scheduledDate === currentTime; // Match times exactly
         });
 
-
-
         if (postsToProcess.length === 0) {
-            console.log('No scheduled posts to process.');
-            return res.status(200).json({ message: 'No scheduled posts to process.' });
+            console.log('No posts are due for processing at this time.');
+            return res.status(200).json({ message: 'No posts are due for processing at this time.' });
         }
 
-        console.log(`Found ${posts.length} scheduled post(s) to process.`);
+        console.log(`Found ${postsToProcess.length} post(s) to process.`);
 
+        // Process each scheduled post
         for (const post of postsToProcess) {
-            console.log("Processing post:", {
-                id: post.id,
-                scheduledDate: post.scheduledDate,
-                isScheduled: post.isScheduled,
-            });
-
-
-            let files = [];
-            if (post.file) {
-                try {
-                    // Assuming `post.file` contains blob data as a JSON string
-                    files = JSON.parse(post.file);
-                    // Here we will convert the files to be ready for the upload route
-                    files = files.map(file => {
-                        return {
-                            buffer: Buffer.from(file.data, 'base64'), // Assuming the file data is in base64 format
-                            originalname: file.name,
-                            mimetype: file.mimeType,
-                        };
-                    });
-                } catch (error) {
-                    console.error(`Invalid file format for post ID ${post.id}:`, error.message);
-                    return; // Skip this post if files are invalid
-                }
-            }
-
-
+            console.log(`Processing Post ID ${post.id} scheduled at ${post.scheduledDate}.`);
 
             const uploadData = {
                 caption: post.caption,
                 pageId: post.pageId,
                 accessToken: post.accessToken,
                 postType: post.postType,
-                files,
-                email: post.email,
+                file: post.file, // Assuming this contains the file info
+                email: post.email, // For any additional data you need
             };
 
             try {
+                // Send data to the upload route
                 const response = await axios.post(
-                    'https://smp-be-mysql.vercel.app/facebook-upload/upload',
+                    'https://smp-be-mysql.vercel.app/facebook-upload/upload', // Your upload endpoint
                     uploadData
                 );
 
                 if (response.status === 200) {
-                    console.log(`Successfully uploaded post with ID ${post.id}.`);
+                    console.log(`Successfully uploaded Post ID ${post.id}.`);
 
                     // Mark the post as processed
-                    post.isScheduled = false;
-                    await post.save();
+                    post.isScheduled = false; // Set isScheduled to false
+                    await post.save(); // Save the updated record in the database
                 } else {
-                    console.error(`Failed to upload post with ID ${post.id}:`, response.data);
+                    console.error(`Failed to upload Post ID ${post.id}:`, response.data);
                 }
             } catch (error) {
-                console.error(`Error uploading post with ID ${post.id}:`, error.response?.data || error.message);
+                console.error(`Error uploading Post ID ${post.id}:`, error.response?.data || error.message);
             }
         }
 
