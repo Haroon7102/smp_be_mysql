@@ -11,26 +11,29 @@ router.get('/trigger-cron', async (req, res) => {
 
     try {
         const currentTime = moment().tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
-        console.log('Cron job triggered at:', currentTime);
 
-        // Find all future scheduled posts (scheduledDate >= currentTime)
         const posts = await SchPost.findAll({
             where: {
                 isScheduled: true,
-                scheduledDate: currentTime,  // Match exactly with the current time
-
             }
         });
 
+        // Filter posts based on the scheduled date matching the current time (rounded to the minute)
+        const postsToProcess = posts.filter(post => {
+            const scheduledDate = moment(post.scheduledDate).startOf('minute').format('YYYY-MM-DD HH:mm');
+            return scheduledDate === currentTime;
+        });
 
-        if (posts.length === 0) {
+
+
+        if (postsToProcess.length === 0) {
             console.log('No scheduled posts to process.');
             return res.status(200).json({ message: 'No scheduled posts to process.' });
         }
 
         console.log(`Found ${posts.length} scheduled post(s) to process.`);
 
-        for (const post of posts) {
+        for (const post of postsToProcess) {
             console.log("Processing post:", {
                 id: post.id,
                 scheduledDate: post.scheduledDate,
