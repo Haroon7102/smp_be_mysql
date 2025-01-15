@@ -10,7 +10,7 @@ router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
 
     try {
-        const currentTime = moment().tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss');
+        const currentTime = moment().tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
         console.log('Cron job triggered at:', currentTime);
 
         // Find all future scheduled posts (scheduledDate >= currentTime)
