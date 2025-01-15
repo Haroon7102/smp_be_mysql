@@ -2,18 +2,21 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { FbPost } = require('../models'); // Ensure you have a Post model
 const axios = require('axios');
+const SchPost = require('../models/SchPost');
 
 router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
 
     try {
-        // Find all posts that are due for publishing
-        const posts = await FbPost.findAll({
+        const currentTime = new Date().toISOString(); // Current UTC time
+        console.log("Current time (UTC):", currentTime);
+
+        // Find all posts due for publishing
+        const posts = await SchPost.findAll({
             where: {
                 isScheduled: true,
-                scheduledDate: { [Op.lte]: new Date() },
+                scheduledDate: { [Op.lte]: currentTime },
             },
         });
 
@@ -25,16 +28,29 @@ router.get('/trigger-cron', async (req, res) => {
         console.log(`Found ${posts.length} scheduled post(s) to process.`);
 
         for (const post of posts) {
-            try {
-                const uploadData = {
-                    caption: post.message,
-                    pageId: post.pageId,
-                    accessToken: post.accessToken,
-                    postType: post.postType,
-                    files: JSON.parse(post.file), // Parse the file field if stored as JSON
-                };
+            console.log("Processing post:", {
+                id: post.id,
+                scheduledDate: post.scheduledDate,
+                isScheduled: post.isScheduled,
+            });
 
-                // Send the post to the upload route
+            let files = [];
+            try {
+                files = post.file ? JSON.parse(post.file) : [];
+            } catch (error) {
+                console.error(`Invalid file format for post ID ${post.id}:`, error.message);
+                continue; // Skip this post
+            }
+
+            const uploadData = {
+                caption: post.message,
+                pageId: post.pageId,
+                accessToken: post.accessToken,
+                postType: post.postType,
+                files,
+            };
+
+            try {
                 const response = await axios.post(
                     'https://smp-be-mysql.vercel.app/facebook-upload/upload',
                     uploadData
@@ -50,7 +66,7 @@ router.get('/trigger-cron', async (req, res) => {
                     console.error(`Failed to upload post with ID ${post.id}:`, response.data);
                 }
             } catch (error) {
-                console.error(`Error uploading post with ID ${post.id}:`, error.message);
+                console.error(`Error uploading post with ID ${post.id}:`, error.response?.data || error.message);
             }
         }
 
@@ -60,5 +76,6 @@ router.get('/trigger-cron', async (req, res) => {
         res.status(500).json({ error: 'Error executing cron job.', details: error.message });
     }
 });
+
 
 module.exports = router;

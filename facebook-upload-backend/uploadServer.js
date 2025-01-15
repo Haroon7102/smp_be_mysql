@@ -118,6 +118,7 @@ const FormData = require('form-data');
 const cors = require('cors');
 const https = require('https');
 const { FbPost } = require('../models'); // Ensure you have a Post model
+const SchPost = require('../models/SchPost');
 // const cron = require('node-cron');
 
 require('dotenv').config();
@@ -787,7 +788,7 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
         }));
 
         // Save post data including scheduledDate and isScheduled
-        const post = await FbPost.create({
+        const post = await SchPost.create({
             accessToken: accessToken,
             email: email, // Assuming email is used for the user ID
             pageId: pageId,
