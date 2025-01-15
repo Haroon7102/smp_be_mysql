@@ -23,7 +23,7 @@ router.get('/trigger-cron', async (req, res) => {
 
         // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
-            const scheduledTime = moment(post.scheduledDate).startOf('minute').format('YYYY-MM-DD HH:mm'); // Scheduled time (rounded to minute level)
+            const scheduledTime = moment(post.scheduledDate).startOf('minute'); // Scheduled time (rounded to minute level)
 
             console.log(`Checking Post ID ${post.id}:`);
             console.log(`Scheduled Time: ${scheduledTime.format('YYYY-MM-DD HH:mm')}`);
