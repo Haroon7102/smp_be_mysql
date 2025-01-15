@@ -5,6 +5,8 @@ const { Op } = require('sequelize');
 const axios = require('axios');
 const { SchPost } = require('../models');
 const moment = require('moment-timezone');
+const FormData = require('form-data');
+
 
 router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
@@ -55,20 +57,32 @@ router.get('/trigger-cron', async (req, res) => {
         for (const post of postsToProcess) {
             console.log(`Processing Post ID ${post.id} scheduled at ${post.scheduledDate}.`);
 
-            const uploadData = {
-                caption: post.caption,
-                pageId: post.pageId,
-                accessToken: post.accessToken,
-                postType: post.postType,
-                file: post.file, // Assuming this contains the file info
-                email: post.email, // For any additional data you need
-            };
+            // Prepare FormData
+            const form = new FormData();
+
+            // Append the regular data fields
+            form.append('caption', post.caption);
+            form.append('pageId', post.pageId);
+            form.append('accessToken', post.accessToken);
+            form.append('postType', post.postType);
+            form.append('email', post.email);
+
+            // Assuming `post.file` contains the file data (Buffer or Blob)
+            form.append('file', post.file, {
+                filename: 'file.jpg',  // Adjust filename dynamically if needed
+                contentType: 'image/jpeg',  // Set the appropriate content type (adjust if necessary)
+            });
 
             try {
                 // Send data to the upload route
                 const response = await axios.post(
                     'https://smp-be-mysql.vercel.app/facebook-upload/upload', // Your upload endpoint
-                    uploadData
+                    form,
+                    {
+                        headers: {
+                            ...form.getHeaders(),  // Automatically adds the correct 'Content-Type' for multipart/form-data
+                        },
+                    }
                 );
 
                 if (response.status === 200) {
