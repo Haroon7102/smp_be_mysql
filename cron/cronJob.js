@@ -23,13 +23,11 @@ router.get('/trigger-cron', async (req, res) => {
 
         // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
-            const scheduledTime = moment(post.scheduledDate).startOf('minute'); // Scheduled time (rounded to minute level)
-
-            console.log(`Checking Post ID ${post.id}:`);
-            console.log(`Scheduled Time: ${scheduledTime.format('YYYY-MM-DD HH:mm')}`);
-
-            return scheduledTime.isSame(currentTime); // Compare only the minute
+            const scheduledTime = moment.tz(post.scheduledDate, 'Asia/Karachi').startOf('minute'); // Treat scheduledDate as already in Asia/Karachi
+            console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledTime.format('YYYY-MM-DD HH:mm')}`);
+            return scheduledTime.isSame(currentTime); // Compare scheduled time with current time
         });
+
 
         if (postsToProcess.length === 0) {
             console.log('No posts are due for processing at this time.');
