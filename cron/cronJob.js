@@ -38,24 +38,18 @@ router.get('/trigger-cron', async (req, res) => {
                 isScheduled: post.isScheduled,
             });
 
-            let files = [];
-            try {
-                files = post.file ? JSON.parse(post.file) : [];
-                files = files.map((file) => {
-                    const fileBuffer = fs.readFileSync(file.filePath); // Read file into buffer
-                    const filename = file.filePath.split('/').pop(); // Extract file name
-                    const mimeType = file.mimeType || 'application/octet-stream'; // Default MIME type
 
-                    return {
-                        buffer: fileBuffer,
-                        originalname: filename,
-                        mimetype: mimeType,
-                    };
-                });
-            } catch (error) {
-                console.error(`Error processing files for post ID ${post.id}:`, error.message);
-                continue; // Skip this post
+            let files = [];
+            if (post.file) {
+                try {
+                    // Assuming `post.file` contains blob data as a JSON string
+                    files = JSON.parse(post.file);
+                } catch (error) {
+                    console.error(`Invalid file format for post ID ${post.id}:`, error.message);
+                    return; // Skip this post if files are invalid
+                }
             }
+
 
 
             const uploadData = {
