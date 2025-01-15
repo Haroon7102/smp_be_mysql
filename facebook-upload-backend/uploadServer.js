@@ -795,6 +795,7 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
             accessToken: accessToken,
             postType: postType,
             email: email, // Assuming email is used for the user ID
+            isScheduled: true,
             file: JSON.stringify(fileBuffers), // Save file data as JSON in the database
         });
 

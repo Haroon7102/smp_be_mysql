@@ -19,6 +19,15 @@ const cronRoutes = require('./cron/cronJob.js'); // Adjust the path
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const moment = require('moment-timezone');
+
+// Set default time zone to 'Asia/Karachi'
+moment.tz.setDefault("Asia/Karachi");
+
+// Now, whenever you get the current time, it will be in 'Asia/Karachi' time zone
+const currentTime = moment().format();
+console.log("Current time in Asia/Karachi:", currentTime);
+
 // Set a global timeout
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ limit: '600mb', extended: true }));

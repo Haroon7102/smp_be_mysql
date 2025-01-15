@@ -4,16 +4,20 @@ const router = express.Router();
 const { Op } = require('sequelize');
 const axios = require('axios');
 const { SchPost } = require('../models');
+const moment = require('moment-timezone');
+
 router.get('/trigger-cron', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Manual cron job triggered.`);
 
     try {
-        const currentTime = new Date().toISOString(); // Current UTC time
-        console.log("Current time (UTC):", currentTime);
+        const currentTime = moment().tz('Asia/Karachi').format();
+        console.log('Cron job triggered at:', currentTime);
+
 
         // Find all posts due for publishing
         const posts = await SchPost.findAll({
             where: {
+                isScheduled: true,
                 scheduledDate: { [Op.lte]: currentTime },
             },
         });
@@ -29,6 +33,7 @@ router.get('/trigger-cron', async (req, res) => {
             console.log("Processing post:", {
                 id: post.id,
                 scheduledDate: post.scheduledDate,
+                isScheduled: post.isScheduled,
             });
 
             let files = [];

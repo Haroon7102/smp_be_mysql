@@ -37,6 +37,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.BLOB('long'), // Use BLOB for binary files, or change if storing Base64 as text
             allowNull: true,
         },
+        isScheduled: {
+            type: DataTypes.BOOLEAN, // This will map to your isScheduled column
+            defaultValue: false,     // Default value set to false
+            allowNull: false,
+        },
         createdAt: {
             type: DataTypes.DATE,
             allowNull: false,
