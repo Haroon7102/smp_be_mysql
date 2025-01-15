@@ -6,6 +6,7 @@ const axios = require('axios');
 const { SchPost } = require('../models');
 const moment = require('moment-timezone');
 const FormData = require('form-data');
+const formData = new FormData();
 
 
 router.get('/trigger-cron', async (req, res) => {
@@ -68,9 +69,8 @@ router.get('/trigger-cron', async (req, res) => {
             form.append('email', post.email);
 
             // Assuming `post.file` contains the file data (Buffer or Blob)
-            form.append('file', post.file, {
-                filename: 'file.jpg',  // Adjust filename dynamically if needed
-                contentType: 'image/jpeg',  // Set the appropriate content type (adjust if necessary)
+            files.forEach((file, index) => {
+                formData.append('files', file);  // Use 'files' as the field name if uploading multiple files
             });
 
             try {
@@ -78,9 +78,10 @@ router.get('/trigger-cron', async (req, res) => {
                 const response = await axios.post(
                     'https://smp-be-mysql.vercel.app/facebook-upload/upload', // Your upload endpoint
                     form,
+
                     {
                         headers: {
-                            ...form.getHeaders(),  // Automatically adds the correct 'Content-Type' for multipart/form-data
+                            'Content-Type': 'multipart/form-data',  // This is crucial for file uploads
                         },
                     }
                 );
