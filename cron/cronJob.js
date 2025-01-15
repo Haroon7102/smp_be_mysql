@@ -23,10 +23,13 @@ router.get('/trigger-cron', async (req, res) => {
 
         // Filter posts that are due to be processed at the current time
         const postsToProcess = posts.filter(post => {
-            // Convert the scheduled date from UTC to 'Asia/Karachi' timezone
-            const scheduledDate = moment(post.scheduledDate).tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
-            console.log(`Checking Post ID ${post.id}: Scheduled Time = ${scheduledDate}`);
-            return scheduledDate === currentTime; // Match times exactly
+            const rawScheduledDate = post.scheduledDate; // Original from DB
+            const formattedScheduledDate = moment(rawScheduledDate).tz('Asia/Karachi').startOf('minute').format('YYYY-MM-DD HH:mm');
+
+            console.log(`Checking Post ID ${post.id}:`);
+            console.log(`Raw Scheduled Date: ${rawScheduledDate}`);
+            console.log(`Formatted Scheduled Date: ${formattedScheduledDate}`);
+            return formattedScheduledDate === currentTime;
         });
 
         if (postsToProcess.length === 0) {
