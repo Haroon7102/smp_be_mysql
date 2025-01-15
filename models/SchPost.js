@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         caption: {
             type: DataTypes.TEXT,
-            allowNull: false,
+            allowNull: true,
         },
         scheduledDate: {
             type: DataTypes.DATE,

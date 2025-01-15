@@ -12,7 +12,7 @@ module.exports = {
       },
       caption: {
         type: Sequelize.TEXT,
-        allowNull: false,
+        allowNull: true,
       },
       scheduledDate: {
         type: Sequelize.DATE,

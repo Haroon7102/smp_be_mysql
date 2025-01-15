@@ -14,7 +14,6 @@ router.get('/trigger-cron', async (req, res) => {
         // Find all posts due for publishing
         const posts = await SchPost.findAll({
             where: {
-                isScheduled: true,
                 scheduledDate: { [Op.lte]: currentTime },
             },
         });
@@ -30,7 +29,6 @@ router.get('/trigger-cron', async (req, res) => {
             console.log("Processing post:", {
                 id: post.id,
                 scheduledDate: post.scheduledDate,
-                isScheduled: post.isScheduled,
             });
 
             let files = [];
@@ -42,7 +40,7 @@ router.get('/trigger-cron', async (req, res) => {
             }
 
             const uploadData = {
-                caption: post.message,
+                caption: post.caption,
                 pageId: post.pageId,
                 accessToken: post.accessToken,
                 postType: post.postType,

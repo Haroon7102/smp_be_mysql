@@ -789,13 +789,12 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
 
         // Save post data including scheduledDate and isScheduled
         const post = await SchPost.create({
-            accessToken: accessToken,
-            email: email, // Assuming email is used for the user ID
-            pageId: pageId,
-            message: caption,
-            postType: postType,
+            caption: caption,
             scheduledDate: new Date(scheduledDate), // Convert to Date object
-            isScheduled: true,
+            pageId: pageId,
+            accessToken: accessToken,
+            postType: postType,
+            email: email, // Assuming email is used for the user ID
             file: JSON.stringify(fileBuffers), // Save file data as JSON in the database
         });
 
