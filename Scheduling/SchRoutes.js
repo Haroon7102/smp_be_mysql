@@ -75,26 +75,52 @@ router.get('/fetch-scheduled-posts', async (req, res) => {
         res.status(500).json({ error: 'Error fetching posts' });
     }
 });
-router.put('/update-scheduled-post/:id', async (req, res) => {
+router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) => {
     try {
-        const { caption, scheduledDate, postType, accessToken } = req.body;
-        const postId = req.params.id;
+        const { postId } = req.params;
+        const { caption, postType } = req.body;
+        const files = req.files; // Files uploaded through the form
 
+        // Find the post in the database
         const post = await SchPost.findByPk(postId);
-        if (post) {
-            post.caption = caption;
-            post.scheduledDate = scheduledDate;
-            post.postType = postType;
-            post.accessToken = accessToken;
 
-            await post.save();
-            res.status(200).json({ message: 'Post updated successfully' });
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Update post details
+        post.caption = caption;
+        post.postType = postType;
+
+        // Handle file updates (add/remove files)
+        if (files && files.length > 0) {
+            // Process the files
+            const filePaths = files.map((file) => file.path); // Assuming you store file paths
+
+            // Update the post's file column (if necessary)
+            post.files = filePaths; // Update with new file paths
+        }
+
+        await post.save(); // Save the updated post
+
+        return res.status(200).json({ message: 'Post updated successfully', post });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        return res.status(500).json({ error: 'Error updating post', details: error.message });
+    }
+});
+router.delete('/delete-scheduled-post/:id', async (req, res) => {
+    try {
+        const post = await SchPost.findByPk(req.params.id);
+        if (post) {
+            await post.destroy();
+            res.status(200).json({ message: 'Post deleted' });
         } else {
             res.status(404).json({ message: 'Post not found' });
         }
     } catch (error) {
-        console.error('Error updating post:', error);
-        res.status(500).json({ error: 'Error updating post' });
+        res.status(500).json({ error: 'Error deleting post' });
     }
 });
+
 module.exports = router;
