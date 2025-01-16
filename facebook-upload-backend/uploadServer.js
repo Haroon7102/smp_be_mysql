@@ -771,43 +771,9 @@ router.delete('/post/delete', async (req, res) => {
     }
 });
 
-router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
-    const { caption, scheduledDate, pageId, accessToken, postType, email } = req.body;
 
-    if (!accessToken || !pageId || !scheduledDate) {
-        return res.status(400).json({ error: 'Access token, page ID, and scheduled date are required.' });
-    }
 
-    try {
-        // Handle files (if any)
-        const files = req.files || []; // `req.files` is an array of uploaded files
-        const fileBuffers = files.map(file => ({
-            buffer: file.buffer, // File binary data
-            originalName: file.originalname, // File name
-            mimetype: file.mimetype, // MIME type
-        }));
 
-        // Save post data including scheduledDate and isScheduled
-        const post = await SchPost.create({
-            caption: caption,
-            scheduledDate: new Date(scheduledDate), // Convert to Date object
-            pageId: pageId,
-            accessToken: accessToken,
-            postType: postType,
-            email: email, // Assuming email is used for the user ID
-            isScheduled: true,
-            file: JSON.stringify(fileBuffers), // Save file data as JSON in the database
-        });
-
-        res.status(201).json({
-            message: 'Post saved successfully!',
-            post: post,
-        });
-    } catch (error) {
-        console.error('Error during scheduling post:', error);
-        return res.status(500).json({ error: 'Scheduling post failed', details: error.message });
-    }
-});
 
 // cron.schedule('* * * * *', async () => {
 //     console.log(`[${new Date().toISOString()}] Checking for scheduled posts...`);

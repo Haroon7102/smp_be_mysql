@@ -15,7 +15,7 @@ const jwt = require('jsonwebtoken'); // Ensure JWT is required
 const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'); // Adjust the path if needed
 const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace with actual path to awsS3.js
 const cronRoutes = require('./cron/cronJob.js'); // Adjust the path
-
+const Scheduled = require('./Scheduling/SchRoutes.js');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -64,7 +64,7 @@ app.use(passport.session());
 app.use('/upload', awsS3Routes);
 // Use the upload router
 app.use('/facebook-upload', facebookUploadRouter);
-
+app.use('/scheduled', Scheduled);
 // Public Route
 app.get('/', (req, res) => {
     res.send('API is running...');
