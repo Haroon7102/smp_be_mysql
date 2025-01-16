@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-
+const cors = require('cors');
 router.use(cors({
     origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Include DELETE

@@ -7,7 +7,7 @@ const session = require('express-session');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { sequelize } = require('./models');
 const authRoutes = require('./auth/authRoutes');
-const { generateCaption } = require('./openai/openaiservice');
+// const { generateCaption } = require('./openai/openaiservice');
 const authMiddleware = require('./middleware/middleware');
 const { User } = require('./models');
 const jwt = require('jsonwebtoken'); // Ensure JWT is required
@@ -16,7 +16,7 @@ const facebookUploadRouter = require('./facebook-upload-backend/uploadServer.js'
 const awsS3Routes = require('./facebook-upload-backend/awsS3.js'); // replace with actual path to awsS3.js
 const cronRoutes = require('./cron/cronJob.js'); // Adjust the path
 const Scheduled = require('./Scheduling/SchRoutes.js');
-
+const openai = require('./openai/openaiservice.js')
 const app = express();
 const PORT = process.env.PORT || 5000;
 const moment = require('moment-timezone');
@@ -49,9 +49,9 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Include DELETE
     allowedHeaders: ['Content-Type', 'Authorization'], // Add any custom headers you use
     credentials: true
-}));
+})); -
 
-
+    app.use('/open-ai', openai);
 
 app.use(bodyParser.json());
 
@@ -190,24 +190,24 @@ app._router.stack.forEach(function (r) {
 });
 
 // Caption Generation Route
-app.post('/generate-caption', async (req, res) => {
-    const { prompt } = req.body;
+// app.post('/generate-caption', async (req, res) => {
+//     const { prompt } = req.body;
 
-    if (!prompt) {
-        return res.status(400).json({ error: 'Prompt is required' });
-    }
+//     if (!prompt) {
+//         return res.status(400).json({ error: 'Prompt is required' });
+//     }
 
-    try {
-        const caption = await generateCaption(prompt);
-        res.json({ caption });
-    } catch (error) {
-        console.error('Error generating caption:', error);
-        res.status(500).json({ error: 'Error generating caption' });
-    }
-});
+//     try {
+//         const caption = await generateCaption(prompt);
+//         res.json({ caption });
+//     } catch (error) {
+//         console.error('Error generating caption:', error);
+//         res.status(500).json({ error: 'Error generating caption' });
+//     }
+// });
 
-const VERIFY_TOKEN = 'IGQWROczJwcGc4RUxmRHltT3JsalVzaVVZAaWNlMGRONWpwTmRDTHdQWjBZANFJObHcyOU10R0dxb1VDbXMxOEduVmJNNWJxbXlWQzJEdUF5a1dPSWgzZAE9fZAHlHdlVvbzBfMDY0VHBvSENvUUttblhlLVVsMnFoVFEZD';
-// Webhook verification endpoint
+// const VERIFY_TOKEN = 'IGQWROczJwcGc4RUxmRHltT3JsalVzaVVZAaWNlMGRONWpwTmRDTHdQWjBZANFJObHcyOU10R0dxb1VDbXMxOEduVmJNNWJxbXlWQzJEdUF5a1dPSWgzZAE9fZAHlHdlVvbzBfMDY0VHBvSENvUUttblhlLVVsMnFoVFEZD';
+// // Webhook verification endpoint
 app.get('/callback', (req, res) => {
     if (req.query['hub.mode'] === 'subscribe' &&
         req.query['hub.verify_token'] === VERIFY_TOKEN) {
