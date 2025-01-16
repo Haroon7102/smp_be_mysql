@@ -69,18 +69,19 @@ router.get('/trigger-cron', async (req, res) => {
             form.append('email', post.email);
 
             // Assuming `post.file` contains the file data (Buffer or Blob)
+            const files = Array.isArray(post.file) ? post.file : [post.file];
+
             files.forEach((file, index) => {
-                // Check if the file exists
                 if (file) {
                     let fileBlob;
 
-                    // If post.file is base64 string, convert to Buffer, then to Blob
+                    // If file is a base64 string, convert it to a Blob
                     if (typeof file === 'string' && file.startsWith('data:')) {
-                        const base64Data = file.split(',')[1];  // Get the base64 data part
+                        const base64Data = file.split(',')[1]; // Extract base64 data
                         const buffer = Buffer.from(base64Data, 'base64');
                         fileBlob = new Blob([buffer], { type: 'application/octet-stream' });
                     } else {
-                        // If it's already a Blob or file object, you can append it directly
+                        // If file is already a Blob or file object
                         fileBlob = file;
                     }
 
