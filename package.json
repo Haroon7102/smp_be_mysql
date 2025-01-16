@@ -34,7 +34,7 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "op": "^0.0.6",
-    "openai": "^4.62.0",
+    "openai": "^4.78.1",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
