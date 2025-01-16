@@ -69,17 +69,27 @@ router.get('/trigger-cron', async (req, res) => {
             form.append('email', post.email);
 
             // Assuming `post.file` contains the file data (Buffer or Blob)
-            const files = Array.isArray(post.file) ? post.file : [post.file];
-            files.forEach((fileBlob, index) => {
-                if (fileBlob) {
-                    const buffer = Buffer.isBuffer(fileBlob) ? fileBlob : Buffer.from(fileBlob);
+            if (post.file) {
+                try {
+                    // Parse the `post.file` JSON (if saved as a string)
+                    const fileData = JSON.parse(post.file); // Assumes file is stored as a stringified JSON object
 
-                    form.append('files', buffer, {
-                        filename: `file${index}.jpg`,
-                        contentType: 'application/octet-stream', // Adjust based on the file type
+                    // Add each file to FormData
+                    fileData.forEach((file, index) => {
+                        const fileBuffer = Buffer.from(file.buffer.data); // Convert to Buffer if needed
+
+                        // Append the file buffer to FormData
+                        form.append('files', fileBuffer, {
+                            filename: file.originalName || `file${index}.jpg`,  // File name, defaulting to file1.jpg if missing
+                            contentType: file.mimetype || 'application/octet-stream',  // MIME type
+                        });
                     });
+                } catch (error) {
+                    console.error(`Error parsing file for Post ID ${post.id}:`, error);
                 }
-            });
+            } else {
+                console.log(`No files found for Post ID ${post.id}`);
+            }
 
 
             try {
