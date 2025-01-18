@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const cors = require('cors');
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+
+
+const API_KEY = "AIzaSyCjp4hY8BiN_rdcWQ6NHfFoMILhdysLcB0"; // Keep this secret!
+const genAI = new GoogleGenerativeAI(API_KEY);
 router.use(cors({
     origin: 'https://smpfe.netlify.app', // Replace with your frontend URL
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Include DELETE
@@ -10,35 +17,38 @@ router.use(cors({
     credentials: true
 }));
 
-router.post('/chat', async (req, res) => {
-    const { text } = req.body;
+router.post("/generate-captions", async (req, res) => {
+    const { topic, numberOfCaptions } = req.body;
+
+    if (!topic || !numberOfCaptions) {
+        return res.status(400).json({ error: "Topic and number of captions are required" });
+    }
+
+    const prompt = `Create ${numberOfCaptions} creative captions for social media posts on the topic '${topic}'. Each caption should include 2-3 relevant trending hashtags.`;
 
     try {
-        // Call OpenAI API to generate response based on user input
-        const openaiResponse = await axios.post('https://api.openai.com/v1/completions', {
-            model: 'gpt-3.5-turbo',  // or the relevant GPT model
-            prompt: `Generate a post content for the following input: ${text}`,
-            max_tokens: 100,
-            temperature: 0.7
-        }, {
-            headers: {
-                'Authorization': `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`
-            }
-        });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
 
-        const reply = openaiResponse.data.choices[0].text.trim();
-        res.json({ reply });
-    } catch (error) {
-        if (error.response && error.response.status === 429) {
-            // Handle quota exceeded error (HTTP 429: Too many requests)
-            console.error('Quota exceeded or rate limit reached');
-            res.status(429).send('Quota exceeded or rate limit reached. Please try again later.');
-        } else {
-            console.error('Error generating response:', error);
-            res.status(500).send('Error generating content');
+        // Parse captions from response text
+        const startIdx = responseText.indexOf("[");
+        const endIdx = responseText.lastIndexOf("]") + 1;
+        if (startIdx === -1 || endIdx === 0) {
+            throw new Error("Invalid response format");
         }
+
+        const captions = JSON.parse(responseText.slice(startIdx, endIdx));
+        res.json({ captions });
+    } catch (err) {
+        console.error("Error generating captions:", err);
+        res.status(500).json({ error: "Failed to generate captions" });
     }
 });
 
 
 module.exports = router;
+
+
+
+
