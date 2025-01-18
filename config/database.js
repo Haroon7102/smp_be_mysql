@@ -17,6 +17,9 @@ const sequelize = new Sequelize('fyp', 'avnadmin', 'AVNS_8rvjJLYgYtsAun2UQpE', {
     port: 22896,
     dialectModule: mysql2,
     logging: false, // Set to false to disable logging
+    dialectOptions: {
+        connectTimeout: 30000 // Increase the timeout to 30 seconds (default is 10 seconds)
+    }
     // pool: {
     //     max: 10, // Max number of active connections
     //     min: 0,  // Min number of idle connections
