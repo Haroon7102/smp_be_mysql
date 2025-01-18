@@ -66,15 +66,28 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Scheduling post failed', details: error.message });
     }
 });
+
 router.get('/fetch-scheduled-posts', async (req, res) => {
     try {
         const posts = await SchPost.findAll();
-        res.status(200).json(posts);
+
+        // Convert blob data to Base64 for frontend consumption
+        const updatedPosts = posts.map(post => ({
+            ...post.dataValues,
+            files: post.files.map(file => ({
+                name: file.name || `File-${Date.now()}`,
+                mimeType: file.mimeType || 'application/octet-stream', // Adjust based on your storage
+                base64: file.blobData ? Buffer.from(file.blobData).toString('base64') : null,
+            })),
+        }));
+
+        res.status(200).json(updatedPosts);
     } catch (error) {
         console.error('Error fetching scheduled posts:', error);
         res.status(500).json({ error: 'Error fetching posts' });
     }
 });
+
 
 
 router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) => {
