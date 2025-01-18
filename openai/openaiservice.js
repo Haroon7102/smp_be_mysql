@@ -25,15 +25,15 @@ router.post("/generate-captions", async (req, res) => {
         return res.status(400).json({ error: "Topic and number of captions are required" });
     }
 
-    const prompt = `Generate 5 engaging and professional social media captions related to "${topic}". 
+    const prompt = `Generate ${numberOfCaptions} engaging and professional social media captions related to "${topic}". 
     Include 5 relevant hashtags for each caption. Avoid any inappropriate or sensitive content.`;
 
     try {
         // Fetch the generative model
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-        // Generate content
-        const result = await model.generateContent({ prompt });
+        // Ensure the request is passed as an object with the prompt as a string
+        const result = await model.generateContent({ prompt: prompt });
 
         // Check if response contains valid result
         if (!result || !result.response || !result.response.text) {
@@ -73,6 +73,7 @@ router.post("/generate-captions", async (req, res) => {
         res.status(500).json({ error: "Failed to generate captions", details: err.message });
     }
 });
+
 
 
 
