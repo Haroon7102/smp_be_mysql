@@ -69,27 +69,7 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
 router.get('/fetch-scheduled-posts', async (req, res) => {
     try {
         const posts = await SchPost.findAll();
-        const formattedPosts = posts.map((post) => {
-            const files = post.file ? JSON.parse(post.file) : [];
-            return {
-                id: post.id,
-                caption: post.caption,
-                scheduledDate: post.scheduledDate,
-                pageId: post.pageId,
-                accessToken: post.accessToken,
-                postType: post.postType,
-                email: post.email,
-                isScheduled: post.isScheduled,
-                files: files.map((file) => {
-                    if (file && file.mimetype && file.buffer) {
-                        return `data:${file.mimetype};base64,${file.buffer}`;
-                    } else {
-                        return null; // Handle improperly formatted file
-                    }
-                }),
-            };
-        });
-        res.status(200).json(formattedPosts);
+        res.status(200).json(posts);
     } catch (error) {
         console.error('Error fetching scheduled posts:', error);
         res.status(500).json({ error: 'Error fetching posts' });
@@ -97,12 +77,10 @@ router.get('/fetch-scheduled-posts', async (req, res) => {
 });
 
 
-
 router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) => {
     try {
         const { postId } = req.params;
-        const { caption, postType, scheduledDate, removeFiles } = req.body;
-        const files = req.files; // Files uploaded through the form
+        const { caption, scheduledDate } = req.body;
 
         // Find the post in the database
         const post = await SchPost.findByPk(postId);
@@ -111,39 +89,9 @@ router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) 
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        // Parse existing file paths from the database
-        const existingFiles = post.file ? JSON.parse(post.file) : [];
-
-        // Remove specified files
-        if (removeFiles) {
-            const filesToRemove = JSON.parse(removeFiles); // Array of file paths to remove
-            filesToRemove.forEach((filePath) => {
-                const fileIndex = existingFiles.indexOf(filePath);
-                if (fileIndex !== -1) {
-                    // Remove the file from the array
-                    existingFiles.splice(fileIndex, 1);
-
-                    // Optionally, delete the file from the server
-                    fs.unlink(filePath, (err) => {
-                        if (err) {
-                            console.error(`Failed to delete file ${filePath}:`, err);
-                        }
-                    });
-                }
-            });
-        }
-
-        // Add new files
-        if (files && files.length > 0) {
-            const newFilePaths = files.map((file) => file.path); // Get paths of uploaded files
-            existingFiles.push(...newFilePaths); // Merge new files with existing ones
-        }
-
         // Update post details
         post.caption = caption || post.caption;
-        post.postType = postType || post.postType;
         post.scheduledDate = scheduledDate || post.scheduledDate;
-        post.file = JSON.stringify(existingFiles); // Update file column as a JSON string
 
         await post.save(); // Save the updated post
 
