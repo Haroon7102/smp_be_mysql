@@ -69,24 +69,27 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
 router.get('/fetch-scheduled-posts', async (req, res) => {
     try {
         const posts = await SchPost.findAll();
-
-        // Parse the JSON file field and prepare for rendering
-        const updatedPosts = posts.map(post => {
-            const files = JSON.parse(post.file || '[]'); // Parse the file JSON field
-
-            // Add Base64 file URLs for rendering
-            const processedFiles = files.map(file => ({
-                src: `data:${file.mimetype};base64,${file.buffer}`, // Base64 string
-                originalName: file.originalName,
-            }));
-
+        const formattedPosts = posts.map((post) => {
+            const files = post.file ? JSON.parse(post.file) : [];
             return {
-                ...post.dataValues,
-                files: processedFiles, // Attach the processed files
+                id: post.id,
+                caption: post.caption,
+                scheduledDate: post.scheduledDate,
+                pageId: post.pageId,
+                accessToken: post.accessToken,
+                postType: post.postType,
+                email: post.email,
+                isScheduled: post.isScheduled,
+                files: files.map((file) => {
+                    if (file && file.mimetype && file.buffer) {
+                        return `data:${file.mimetype};base64,${file.buffer}`;
+                    } else {
+                        return null; // Handle improperly formatted file
+                    }
+                }),
             };
         });
-
-        res.status(200).json(updatedPosts);
+        res.status(200).json(formattedPosts);
     } catch (error) {
         console.error('Error fetching scheduled posts:', error);
         res.status(500).json({ error: 'Error fetching posts' });
