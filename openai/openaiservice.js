@@ -36,11 +36,16 @@ router.post("/generate-captions", async (req, res) => {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         const result = await model.generateContent({
-            prompt,
+            prompt: prompt,
             maxOutputTokens: 200, // Limit response length
             temperature: 0.7, // Control randomness for more engaging results
         });
+        console.log(result);  // Log the entire result object to inspect the structure.
 
+        if (result.error) {
+            // Handle API-specific errors if present
+            return res.status(500).json({ error: "Gemini API error", details: result.error });
+        }
         // Process the result and extract captions
         const captions = result.candidates.map((candidate) => candidate.content);
 
