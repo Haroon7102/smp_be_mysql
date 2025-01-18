@@ -24,8 +24,8 @@ router.post("/generate-captions", async (req, res) => {
         return res.status(400).json({ error: "Topic and number of captions are required" });
     }
 
-    const prompt = `Create ${numberOfCaptions} creative captions for social media posts on the topic '${topic}'. Each caption should include 2-3 relevant trending hashtags.`;
-
+    const prompt = `Generate 5 engaging and professional social media captions related to "${topic}".
+    Include 5 relevant hashtags for each caption. Avoid any inappropriate or sensitive content.`;
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         const result = await model.generateContent(prompt);
