@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const passport = require('passport');
 const { User } = require('../models');
 const router = express.Router();
@@ -80,6 +81,68 @@ router.get('/user', authMiddleware, async (req, res) => {
         res.status(500).send('Server error');
     }
 });
+
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Find the user
+        const user = await User.findOne({ where: { email } });
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Generate a password reset token
+        const resetToken = jwt.sign({ id: user.id }, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0', { expiresIn: '15m' });
+
+        // Send reset email
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: '70120821@student.uol.edu.pk',
+                pass: 'asip msvb rtbe ljcs'
+            }
+        });
+
+        const resetLink = `https://smpfe.netlify.app/reset-password?token=${resetToken}`;
+        const mailOptions = {
+            from: '70120821@student.uol.edu.pk',
+            to: user.email,
+            subject: 'Password Reset Request',
+            html: `<p>Click <a href="${resetLink}">here</a> to reset your password. This link is valid for 15 minutes.</p>`
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.json({ msg: 'Password reset link sent to your email' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+router.post('/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    try {
+        // Verify the token
+        const decoded = jwt.verify(token, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0');
+        const user = await User.findByPk(decoded.id);
+        if (!user) {
+            return res.status(400).json({ msg: 'Invalid token or user not found' });
+        }
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.json({ msg: 'Password has been reset successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(400).json({ msg: 'Invalid or expired token' });
+    }
+});
+
 
 
 router.put('/update-password', async (req, res) => {
