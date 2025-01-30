@@ -81,24 +81,6 @@ router.get('/user', authMiddleware, async (req, res) => {
     }
 });
 
-// Update Email
-router.put('/update-email', authMiddleware, async (req, res) => {
-    const { email } = req.body;
-    const userId = req.user.id;
-
-    try {
-        const user = await User.findByPk(userId);
-        if (!user) return res.status(404).json({ msg: 'User not found' });
-
-        user.email = email;
-        await user.save();
-
-        res.json({ msg: 'Email updated successfully' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-});
 
 router.put('/update-password', async (req, res) => {
     const { email, password, newPassword } = req.body;
@@ -116,6 +98,9 @@ router.put('/update-password', async (req, res) => {
         const user = await User.findOne({ where: { email } });
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
+        }
+        if (user.googleId) {
+            return res.status(400).json({ msg: "You signed in with Google. Manage your password via Google settings." });
         }
 
         // If 'password' is provided, it's a regular password update (not a reset)
