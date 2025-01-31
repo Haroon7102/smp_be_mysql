@@ -120,36 +120,14 @@ router.post('/forgot-password', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
-// router.put('/reset-password', async (req, res) => {
-//     const { token, newPassword } = req.body;
-
-//     try {
-//         // Verify the token
-//         const decoded = jwt.verify(token, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0');
-//         const user = await User.findOne({ where: { email: decoded.email } });
-//         if (!user) {
-//             return res.status(400).json({ msg: 'Invalid token or user not found' });
-//         }
-
-//         // Hash the new password
-//         const salt = await bcrypt.genSalt(10);
-//         user.password = await bcrypt.hash(newPassword, salt);
-//         await user.save();
-
-//         res.json({ msg: 'Password has been reset successfully' });
-//     } catch (err) {
-//         console.error(err.message);
-//         res.status(400).json({ msg: 'Invalid or expired token' });
-//     }
-// });
 
 
 
 router.put('/update-password', async (req, res) => {
-    const { email, password, newPassword } = req.body;
+    const { email, password, newPassword, token } = req.body;
 
-    // Logging to check what data is received
-    console.log('Received data:', { email, password, newPassword });
+    // Logging to check received data
+    console.log('Received data:', { email, password, newPassword, token });
 
     try {
         // Check if email and newPassword are provided
@@ -162,22 +140,38 @@ router.put('/update-password', async (req, res) => {
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
+
         if (user.googleId) {
             return res.status(400).json({ msg: "You signed in with Google. Manage your password via Google settings." });
         }
 
-        // If 'password' is provided, it's a regular password update (not a reset)
-        if (password) {
-            // Compare the provided current password with the stored password
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                return res.status(400).json({ msg: 'Email or password does not match' });
-            }
+        // Check if new password is the same as the current one
+        const isSamePassword = await bcrypt.compare(newPassword, user.password);
+        if (isSamePassword) {
+            return res.status(400).json({ msg: 'New password must be different from the current password' });
         }
 
-        // If no current password is provided, assume it's a password reset
-        if (!password) {
-            console.log('Password reset process initiated');
+        // Case 1: Logged-in user updating password (Requires current password)
+        if (password) {
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ msg: 'Current password is incorrect' });
+            }
+        }
+        // Case 2: Password reset via email (Requires valid token)
+        else if (token) {
+            try {
+                const decoded = jwt.verify(token, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0');
+                if (decoded.email !== email) {
+                    return res.status(400).json({ msg: 'Invalid token or email mismatch' });
+                }
+            } catch (err) {
+                return res.status(400).json({ msg: 'Invalid or expired token' });
+            }
+        }
+        // Case 3: No password or token provided
+        else {
+            return res.status(400).json({ msg: 'Please provide the current password or a valid reset token' });
         }
 
         // Hash the new password and update it in the database
@@ -185,13 +179,13 @@ router.put('/update-password', async (req, res) => {
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
 
-        // Respond with success message
         res.json({ msg: 'Password updated successfully' });
     } catch (err) {
         console.error('Error during password update:', err.message);
         res.status(500).send('Server error');
     }
 });
+
 
 
 
