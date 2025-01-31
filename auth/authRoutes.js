@@ -104,7 +104,7 @@ router.post('/forgot-password', async (req, res) => {
             }
         });
 
-        const resetLink = `https://smpfe.netlify.app/reset-password?token=${resetToken}`;
+        const resetLink = `https://smpfe.netlify.app/dashboard?token=${resetToken}`;
         const mailOptions = {
             from: '70120821@student.uol.edu.pk',
             to: user.email,
