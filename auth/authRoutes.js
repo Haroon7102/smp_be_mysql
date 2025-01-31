@@ -120,28 +120,28 @@ router.post('/forgot-password', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
-router.post('/reset-password', async (req, res) => {
-    const { token, newPassword } = req.body;
+// router.put('/reset-password', async (req, res) => {
+//     const { token, newPassword } = req.body;
 
-    try {
-        // Verify the token
-        const decoded = jwt.verify(token, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0');
-        const user = await User.findByPk(decoded.id);
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid token or user not found' });
-        }
+//     try {
+//         // Verify the token
+//         const decoded = jwt.verify(token, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0');
+//         const user = await User.findOne({ where: { email: decoded.email } });
+//         if (!user) {
+//             return res.status(400).json({ msg: 'Invalid token or user not found' });
+//         }
 
-        // Hash the new password
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
-        await user.save();
+//         // Hash the new password
+//         const salt = await bcrypt.genSalt(10);
+//         user.password = await bcrypt.hash(newPassword, salt);
+//         await user.save();
 
-        res.json({ msg: 'Password has been reset successfully' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(400).json({ msg: 'Invalid or expired token' });
-    }
-});
+//         res.json({ msg: 'Password has been reset successfully' });
+//     } catch (err) {
+//         console.error(err.message);
+//         res.status(400).json({ msg: 'Invalid or expired token' });
+//     }
+// });
 
 
 
