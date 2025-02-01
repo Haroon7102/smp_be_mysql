@@ -93,14 +93,14 @@ router.post('/forgot-password', async (req, res) => {
         }
 
         // Generate a password reset token
-        const resetToken = jwt.sign({ id: user.id }, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0', { expiresIn: '15m' });
+        const resetToken = jwt.sign({ id: user.id, email: user.email }, '82ddefea6c50e02c85b93d9addf9da8b73bd62bd728423458ee1685a7b42cdf43f7d095957787be64108685ba4134b043e02fafb6d52a3d935d49344a194c3e0', { expiresIn: '15m' });
 
         // Send reset email
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
-                user: '70120821@student.uol.edu.pk',
-                pass: 'asip msvb rtbe ljcs'
+                user: 'socialmanagerpro.smp@gmail.com',
+                pass: 'ejmh mfkn zwic rqsu'
             }
         });
 

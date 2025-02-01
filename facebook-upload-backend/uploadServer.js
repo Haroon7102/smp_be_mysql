@@ -973,16 +973,8 @@ router.delete('/post/delete', async (req, res) => {
 // Route to fetch all posts
 router.get('/posts', async (req, res) => {
     try {
-        // Assuming email is available in the authenticated request user object
-        const userEmail = req.query.email;  // Change to where the email is stored in your request
-        if (!userEmail) {
-            return res.status(400).json({ error: 'Email is required' });
-        }
-        // Fetch all posts from FbPost table where email matches the logged-in user's email
+        // Fetch all posts from FbPost table
         const posts = await FbPost.findAll({
-            where: {
-                email: userEmail, // Filter posts by email
-            },
             attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken', 'postId'], // Include accessToken field
             order: [['createdAt', 'DESC']],
         });
@@ -1017,7 +1009,6 @@ router.get('/posts', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch posts' });
     }
 });
-
 
 
 
