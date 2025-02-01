@@ -66,15 +66,22 @@ router.post('/schedule-post', upload.array('files', 10), async (req, res) => {
         return res.status(500).json({ error: 'Scheduling post failed', details: error.message });
     }
 });
-router.get('/fetch-scheduled-posts', async (req, res) => {
+router.post('/fetch-scheduled-posts', async (req, res) => {
+    const { email } = req.body;
+
     try {
-        const posts = await SchPost.findAll();
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const posts = await SchPost.findAll({ where: { email } }); // Filter posts by email
         res.status(200).json(posts);
     } catch (error) {
         console.error('Error fetching scheduled posts:', error);
         res.status(500).json({ error: 'Error fetching posts' });
     }
 });
+
 
 
 router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) => {
