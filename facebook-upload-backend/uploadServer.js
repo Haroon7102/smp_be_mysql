@@ -971,11 +971,18 @@ router.delete('/post/delete', async (req, res) => {
 // Fetch posts for the logged-in userbbbbbb
 // Endpoint to fetch all posts from the database
 // Route to fetch all posts
-router.get('/posts', async (req, res) => {
+router.post('/posts', async (req, res) => {
+    const { email } = req.body;
+
     try {
-        // Fetch all posts from FbPost table
+        if (!email) {
+            return res.status(400).json({ msg: 'Email is required' });
+        }
+
+        // Fetch posts for the provided email
         const posts = await FbPost.findAll({
-            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken', 'postId'], // Include accessToken field
+            where: { email }, // Filter posts by email
+            attributes: ['id', 'email', 'pageId', 'pageName', 'message', 'media', 'createdAt', 'accessToken', 'postId'],
             order: [['createdAt', 'DESC']],
         });
 
