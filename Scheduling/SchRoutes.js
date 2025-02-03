@@ -82,7 +82,23 @@ router.post('/fetch-scheduled-posts', async (req, res) => {
     }
 });
 
+router.post("/posts/scheduled/count", async (req, res) => {
+    const { email } = req.body;
 
+    try {
+        const count = await SchPost.count({
+            where: {
+                email: email,
+                isScheduled: 0, // ✅ Only count posts where isScheduled is 0
+            },
+        });
+
+        res.status(200).json({ scheduledPosts: count });
+    } catch (error) {
+        console.error("Error counting scheduled posts:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
 
 router.put('/posts/:postId/update', upload.array('files', 10), async (req, res) => {
     try {
