@@ -89,7 +89,7 @@ router.post("/posts/scheduled/count", async (req, res) => {
         const count = await SchPost.count({
             where: {
                 email: email,
-                isScheduled: 0, // ✅ Only count posts where isScheduled is 0
+                isScheduled: 1, // ✅ Only count posts where isScheduled is 0
             },
         });
 
