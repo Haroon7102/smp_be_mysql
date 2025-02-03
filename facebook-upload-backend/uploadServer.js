@@ -1018,7 +1018,21 @@ router.post('/posts', async (req, res) => {
 });
 
 
+router.post('/posts/count', async (req, res) => {
+    const { email } = req.body;
 
+    try {
+        if (!email) {
+            return res.status(400).json({ error: "Email is required" });
+        }
+
+        const totalPosts = await FbPost.count({ where: { email } }); // Using Sequelize's count method
+        return res.json({ totalPosts }); // Returning only the count
+    } catch (error) {
+        console.error("Error counting posts:", error);
+        return res.status(500).json({ error: "Server Error" });
+    }
+});
 
 
 
