@@ -82,7 +82,7 @@ router.post('/fetch-scheduled-posts', async (req, res) => {
     }
 });
 
-router.post("/posts/scheduled/count", async (req, res) => {
+router.post('/count', async (req, res) => {
     const { email } = req.body;
 
     try {
